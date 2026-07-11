@@ -1,20 +1,15 @@
-from html.parser import HTMLParser
-from pathlib import Path
 import re
 import unittest
-
+from html.parser import HTMLParser
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 DETAIL = ROOT / "automation" / "A2E250-AL06-01" / "detail.html"
 CONFIG = ROOT / "config" / "detail_templates.yaml"
 MODEL = "A2E250-AL06-01"
-FOURTH_IMAGE = (
-    "https://cbu01.alicdn.com/img/ibank/"
-    "O1CN01q5O6eR1fBr8ZyQuxj_!!994523969-0-cib.jpg"
-)
+FOURTH_IMAGE = "https://cbu01.alicdn.com/img/ibank/O1CN01q5O6eR1fBr8ZyQuxj_!!994523969-0-cib.jpg"
 WHITE_BACKGROUND_IMAGE = (
-    "https://cbu01.alicdn.com/img/ibank/"
-    "O1CN01DOdda51fBr8aDYZNw_!!994523969-0-cib.jpg"
+    "https://cbu01.alicdn.com/img/ibank/O1CN01DOdda51fBr8aDYZNw_!!994523969-0-cib.jpg"
 )
 
 
@@ -23,9 +18,7 @@ class ImageCollector(HTMLParser):
         super().__init__()
         self.images: list[dict[str, str]] = []
 
-    def handle_starttag(
-        self, tag: str, attrs: list[tuple[str, str | None]]
-    ) -> None:
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag.lower() == "img":
             self.images.append({key: value or "" for key, value in attrs})
 
