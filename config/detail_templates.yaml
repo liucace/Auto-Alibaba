@@ -1,0 +1,33 @@
+geo_detail:
+  style:
+    font_family: "arial, microsoft yahei, sans-serif"
+    primary_color: "#0b3a70"
+    background_color: "#ffffff"
+    alternate_background_color: "#f6f8fb"
+  sections:
+    - entity_answer
+    - product_definition
+    - core_parameters
+    - operating_points
+    - structure_and_installation
+    - purchase_confirmation
+    - faq
+    - one_sentence_selection
+  image_policy:
+    required_count: 3
+    positions:
+      - after_entity_answer
+      - after_core_parameters
+      - after_structure_and_installation
+    alt_template: "{brand} {model} {image_role}"
+  content_policy:
+    answer_first: true
+    repeat_full_model_in_key_answers: true
+    include_parameter_semantics: true
+    include_operating_point_context: true
+    hide_missing_fields: true
+    prohibit_unsupported_scenarios: true
+    prohibit_inferred_certifications: true
+    prohibit_inferred_warranty: true
+    prohibit_similar_model_data: true
+    require_source_evidence: true
