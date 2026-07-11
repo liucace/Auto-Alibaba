@@ -60,6 +60,26 @@ class ProductImage(BaseModel):
     hosted_url: str | None = None
 
 
+class DetailDrawingSpec(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    model: str
+    pdf_file: str
+    page: int = Field(ge=1)
+    crop: tuple[float, float, float, float]
+    local_file: str = "upload_optimized/detail-drawing.jpg"
+    hosted_url: str | None = None
+
+    @model_validator(mode="after")
+    def validate_crop(self) -> "DetailDrawingSpec":
+        x0, y0, x1, y1 = self.crop
+        if any(value < 0 or value > 1 for value in self.crop):
+            raise ValueError("detail drawing crop values must be between 0 and 1")
+        if x0 >= x1 or y0 >= y1:
+            raise ValueError("detail drawing crop coordinates must be ordered")
+        return self
+
+
 class PreparedProduct(BaseModel):
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
@@ -68,3 +88,5 @@ class PreparedProduct(BaseModel):
     artifacts_directory: Path
     images: tuple[ProductImage, ...]
     local_images: tuple[Path, ...]
+    detail_drawing: DetailDrawingSpec
+    local_detail_drawing: Path

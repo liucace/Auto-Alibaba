@@ -1,6 +1,9 @@
 import json
 from pathlib import Path
 
+import pytest
+
+from app.domain.errors import ManualReviewRequired
 from app.products.loader import load_prepared_product
 
 
@@ -11,6 +14,9 @@ def test_load_prepared_product_overrides_price_and_stock_from_excel(tmp_path: Pa
     artifacts.mkdir(parents=True)
     source.mkdir(parents=True)
     (source / "fan.pdf").write_bytes(b"pdf")
+    drawing = source / "upload_optimized" / "detail-drawing.jpg"
+    drawing.parent.mkdir()
+    drawing.write_bytes(b"jpeg")
     for index in range(4):
         (source / f"photo-{index}.jpg").write_bytes(b"jpg")
     (artifacts / "1688_payload.json").write_text(
@@ -52,6 +58,20 @@ def test_load_prepared_product_overrides_price_and_stock_from_excel(tmp_path: Pa
         ),
         encoding="utf-8",
     )
+    detail_assets = artifacts / "detail_assets.json"
+    detail_assets.write_text(
+        json.dumps(
+            {
+                "model": "W3G630-NU33-03",
+                "pdf_file": "fan.pdf",
+                "page": 1,
+                "crop": [0.05, 0.1, 0.95, 0.8],
+                "local_file": "upload_optimized/detail-drawing.jpg",
+                "hosted_url": None,
+            }
+        ),
+        encoding="utf-8",
+    )
 
     product = load_prepared_product(root, "W3G630-NU33-03", price=10000, stock=10)
 
@@ -59,6 +79,12 @@ def test_load_prepared_product_overrides_price_and_stock_from_excel(tmp_path: Pa
     assert product.payload.stock == 10
     assert len(product.local_images) == 4
     assert all(path.is_absolute() for path in product.local_images)
+    assert product.detail_drawing.model == "W3G630-NU33-03"
+    assert product.local_detail_drawing == drawing.resolve()
+
+    detail_assets.unlink()
+    with pytest.raises(ManualReviewRequired, match="detail assets"):
+        load_prepared_product(root, "W3G630-NU33-03", price=10000, stock=10)
 
 
 def test_source_prefers_processing_then_draft_saved(tmp_path: Path) -> None:
