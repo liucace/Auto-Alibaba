@@ -478,8 +478,16 @@ def test_geo_detail_hides_missing_and_unsupported_claims(payload: ProductPayload
 
 def test_geo_images_have_semantic_alt(payload: ProductPayload) -> None:
     images = BeautifulSoup(render_geo_detail(payload), "html.parser").select("img")
-    assert len(images) == 3
+    assert len(images) == 4
     assert all("A2E250-AL06-01" in image["alt"] for image in images)
+
+
+def test_fourth_geo_image_is_unused_current_model_photo(payload: ProductPayload) -> None:
+    images = BeautifulSoup(render_geo_detail(payload), "html.parser").select("img")
+    sources = [image["src"] for image in images]
+    assert len(sources) == len(set(sources)) == 4
+    assert images[3]["data-image-role"] == "unused_main_photo"
+    assert images[3]["src"] != payload.white_background_image.hosted_url
 ```
 
 - [ ] **Run the red GEO tests**
@@ -489,7 +497,22 @@ Expected: FAIL during import.
 
 - [ ] **Implement the frozen eight-section renderer**
 
-Render only escaped payload values. Include parameter meanings beside values, label operating-point frequency, place the three hosted images after entity answer/core parameters/structure, and build alt text from `{brand} {model} {image_role}`. Omit empty rows and empty optional blocks. Never generate application scenarios, certifications, warranty, or related-model comparisons.
+Render only escaped payload values. Include parameter meanings beside values and label operating-point frequency. Place the first three hosted images after entity answer/core parameters/structure; place a fourth, previously unused current-model real photo after the structure section with `data-image-role="unused_main_photo"`. Build alt text from `{brand} {model} {image_role}`. Reject duplicate URLs, the white-background slot, and any image whose model evidence conflicts. Omit empty rows and empty optional blocks. Never generate application scenarios, certifications, warranty, or related-model comparisons.
+
+```yaml
+# config/detail_templates.yaml
+geo_detail:
+  image_policy:
+    required_count: 4
+    positions:
+      - after_entity_answer
+      - after_core_parameters
+      - after_structure_and_installation
+      - after_structure_and_installation_secondary
+    fourth_image_role: unused_main_photo
+    reject_white_background: true
+    reject_duplicate_urls: true
+```
 
 - [ ] **Verify the exact local detail artifact**
 
@@ -759,6 +782,7 @@ async def test_detail_uses_legacy_tinymce_sequence(page, payload) -> None:
     calls = await page.evaluate("window.editorCalls")
     assert [call[0] for call in calls] == ["setContent", "onChange.dispatch", "save"]
     assert "A2E250-AL06-01" in calls[0][1]
+    assert len(BeautifulSoup(calls[0][1], "html.parser").select("img")) == 4
 ```
 
 - [ ] **Run and confirm failure**
@@ -768,7 +792,7 @@ Expected: FAIL during import.
 
 - [ ] **Implement the old API bridge and postcondition**
 
-Inside `guid-description`, obtain the existing editor instance and call `setContent(html)`, `onChange.dispatch()`, and `save()` in order. Read back the hidden textarea/editor content and require all eight `data-geo-section` markers and exactly three hosted images before returning success.
+Inside `guid-description`, obtain the existing editor instance and call `setContent(html)`, `onChange.dispatch()`, and `save()` in order. Read back the hidden textarea/editor content and require all eight `data-geo-section` markers, exactly four distinct hosted images, and a semantic `alt` on every image before returning success. Refresh `guid-assistBoard` and require the “详情信息 / 完善产品说明” warning to disappear; do not enable unrelated video or buyer-protection options.
 
 - [ ] **Verify GEO injection**
 
@@ -1020,7 +1044,7 @@ git commit -m "test: add offline acceptance and draft safety gates"
 - [ ] Every source field in `1688_payload.json` has current-model evidence or is null/omitted.
 - [ ] Missing Excel model row stops only that product; blank price/stock cells resolve independently to `10000`/`50`.
 - [ ] Fixed category, 48-hour delivery, `运费` template, drawing dimensions, and model weight are config-backed and tested.
-- [ ] GEO HTML uses the approved eight-section answer-first structure, three semantic images, parameter meanings, operating-point context, and no unsupported claims.
+- [ ] GEO HTML uses the approved eight-section answer-first structure, four distinct semantic images, parameter meanings, operating-point context, and no unsupported claims; the fourth image is an unused current-model real photo rather than the white-background image.
 - [ ] All seven page sections validate their postconditions before draft save.
 - [ ] No code path can click a publish control; only the exact draft anchor is allowed.
 - [ ] Successful drafts are archived without reopening; failures create incident evidence and do not stop the batch.
