@@ -14,12 +14,23 @@ geo_detail:
     - faq
     - one_sentence_selection
   image_policy:
-    required_count: 3
+    required_count: 4
     positions:
       - after_entity_answer
       - after_core_parameters
       - after_structure_and_installation
+      - after_structure_and_installation_secondary
+    fourth_image_role: nameplate_closeup
+    reject_white_background: true
+    reject_duplicate_urls: true
     alt_template: "{brand} {model} {image_role}"
+  editor_sync_policy:
+    tinymce_sequence:
+      - setContent
+      - onChange.dispatch
+      - save
+    form_model_sync: updateModelValue
+    quality_payload_must_not_be_null: true
   content_policy:
     answer_first: true
     repeat_full_model_in_key_answers: true

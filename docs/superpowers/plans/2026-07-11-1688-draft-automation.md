@@ -783,6 +783,7 @@ async def test_detail_uses_legacy_tinymce_sequence(page, payload) -> None:
     assert [call[0] for call in calls] == ["setContent", "onChange.dispatch", "save"]
     assert "A2E250-AL06-01" in calls[0][1]
     assert len(BeautifulSoup(calls[0][1], "html.parser").select("img")) == 4
+    assert await page.evaluate("window.descriptionModel.detailList[0].content") == calls[0][1]
 ```
 
 - [ ] **Run and confirm failure**
@@ -792,7 +793,7 @@ Expected: FAIL during import.
 
 - [ ] **Implement the old API bridge and postcondition**
 
-Inside `guid-description`, obtain the existing editor instance and call `setContent(html)`, `onChange.dispatch()`, and `save()` in order. Read back the hidden textarea/editor content and require all eight `data-geo-section` markers, exactly four distinct hosted images, and a semantic `alt` on every image before returning success. Refresh `guid-assistBoard` and require the “详情信息 / 完善产品说明” warning to disappear; do not enable unrelated video or buyer-protection options.
+Inside `guid-description`, obtain the existing editor instance and call `setContent(html)`, `onChange.dispatch()`, and `save()` in order. Then resolve the owning description React component and call its `updateModelValue(html)` method; the TinyMCE listener alone does not update the form model. Read back the editor, hidden textarea, and form model content and require all three to match, with all eight `data-geo-section` markers, exactly four distinct hosted images, and a semantic `alt` on every image. Refresh `guid-assistBoard`, inspect the outgoing `qualityCal.htm` POST, and require `description.detailList[0].content` to contain the four-image HTML rather than the string `"null"`. Finally require the “详情信息 / 完善产品说明” warning to disappear; do not enable unrelated video or buyer-protection options.
 
 - [ ] **Verify GEO injection**
 
