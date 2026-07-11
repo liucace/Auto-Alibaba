@@ -5,6 +5,7 @@ from app.publisher.playwright_port import (
     SAVE_DRAFT_BUTTON,
     Playwright1688Port,
     build_session_tag,
+    normalize_hosted_image_urls,
     normalize_main_image_urls,
 )
 
@@ -43,6 +44,16 @@ def test_main_image_urls_are_unique_and_strip_thumbnails() -> None:
     ]
 
 
+def test_hosted_image_urls_are_unique_and_strip_thumbnails() -> None:
+    assert normalize_hosted_image_urls(
+        [
+            "https://cbu01.alicdn.com/a.summ.jpg",
+            "https://cbu01.alicdn.com/a.jpg",
+            "https://example.com/not-hosted.jpg",
+        ]
+    ) == ["https://cbu01.alicdn.com/a.jpg"]
+
+
 def test_freight_dropdown_clicks_visible_selection_item() -> None:
     source = inspect.getsource(Playwright1688Port.fill_product)
 
@@ -59,3 +70,20 @@ def test_image_upload_reuses_existing_four_urls() -> None:
 
     assert "existing = await self._read_current_main_image_urls()" in source
     assert source.index("existing =") < source.index('get_by_text("添加图片"')
+
+
+def test_detail_image_upload_uses_tinymce_picker_not_main_picture() -> None:
+    source = inspect.getsource(Playwright1688Port.upload_detail_image)
+
+    assert 'button[title="插入图片"]' in source
+    assert "要插入的图片(1/1)" in source
+    assert "_read_detail_image_urls" in source
+    assert "#guid-primaryPicture" not in source
+
+
+def test_detail_injection_requires_explicit_expected_image_count() -> None:
+    signature = inspect.signature(Playwright1688Port.inject_detail)
+    source = inspect.getsource(Playwright1688Port.inject_detail)
+
+    assert "expected_image_count" in signature.parameters
+    assert 'result.get("imageCount") != expected_image_count' in source

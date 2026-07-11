@@ -49,12 +49,17 @@ DETAIL_SYNC_SCRIPT = r"""
 """
 
 
-def normalize_main_image_urls(raw_urls: list[str]) -> list[str]:
+def normalize_hosted_image_urls(raw_urls: list[str]) -> list[str]:
     unique: list[str] = []
     for raw in raw_urls:
         url = raw.replace(".summ.jpg", ".jpg")
-        if url not in unique:
+        if "cbu01.alicdn.com/" in url and url not in unique:
             unique.append(url)
+    return unique
+
+
+def normalize_main_image_urls(raw_urls: list[str]) -> list[str]:
+    unique = normalize_hosted_image_urls(raw_urls)
     return unique[-4:]
 
 
@@ -118,6 +123,23 @@ async def _wait_for_main_image_urls(
     raise ManualReviewRequired("four hosted main image URLs did not reach the form model")
 
 
+async def _wait_for_new_detail_image_url(
+    read_urls: Callable[[], Awaitable[list[str]]],
+    before: set[str],
+    *,
+    timeout_seconds: float = 20,
+    poll_seconds: float = 0.1,
+) -> str:
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout_seconds
+    while loop.time() < deadline:
+        added = [url for url in await read_urls() if url not in before]
+        if len(added) == 1:
+            return added[0]
+        await asyncio.sleep(poll_seconds)
+    raise ManualReviewRequired("one hosted detail image URL did not reach TinyMCE")
+
+
 class Playwright1688Port:
     def __init__(
         self,
@@ -171,6 +193,19 @@ class Playwright1688Port:
         )
         return normalize_main_image_urls(list(raw))
 
+    async def _read_detail_image_urls(self) -> list[str]:
+        raw = await self.page.evaluate(
+            """() => {
+              const tiny = window.tinymce || window.tinyMCE;
+              const editor = tiny?.activeEditor || tiny?.editors?.[0];
+              if (!editor) return [];
+              const container = document.createElement('div');
+              container.innerHTML = editor.getContent();
+              return [...container.querySelectorAll('img')].map(image => image.src);
+            }"""
+        )
+        return normalize_hosted_image_urls(list(raw))
+
     async def upload_main_images(self, paths: tuple[Path, ...]) -> list[str]:
         if len(paths) != 4:
             raise ManualReviewRequired("exactly four main images are required")
@@ -204,6 +239,33 @@ class Playwright1688Port:
             return await self._read_current_main_image_urls()
 
         return await _wait_for_main_image_urls(read_urls)
+
+    async def upload_detail_image(self, path: Path, *, existing_url: str | None = None) -> str:
+        if existing_url and existing_url.startswith("https://cbu01.alicdn.com/img/ibank/"):
+            return existing_url.replace(".summ.jpg", ".jpg")
+        if not path.is_file() or path.stat().st_size == 0:
+            raise ManualReviewRequired(f"detail image does not exist or is empty: {path}")
+        before = set(await self._read_detail_image_urls())
+        await self.page.locator('#guid-description button[title="插入图片"]').click(timeout=5_000)
+        picker = await _wait_for_picker_frame(self.page)
+        await picker.get_by_text("我的电脑", exact=True).click(timeout=5_000)
+        album_select = picker.locator("select:visible").last
+        chosen = await _wait_for_album_name(
+            lambda: album_select.locator("option").all_text_contents(), self.albums
+        )
+        await album_select.select_option(label=chosen)
+        watermark = picker.locator('input[type="checkbox"]')
+        if await watermark.count() and await watermark.first.is_checked():
+            await watermark.first.uncheck()
+        await picker.locator('input[type="file"]').last.set_input_files(str(path))
+        await picker.wait_for_function(
+            """() => document.body.innerText.includes('要插入的图片(1/1)')
+              && !document.body.innerText.includes('正在上传！')
+              && !document.body.innerText.includes('准备上传！')""",
+            timeout=60_000,
+        )
+        await picker.locator("em", has_text="插入图片").last.click(timeout=5_000)
+        return await _wait_for_new_detail_image_url(self._read_detail_image_urls, before)
 
     async def fill_product(self, payload: ProductPayload) -> None:
         plan = build_form_plan(payload)
@@ -285,9 +347,9 @@ class Playwright1688Port:
             await self.page.keyboard.type(value)
             await self.page.keyboard.press("Tab")
 
-    async def inject_detail(self, html: str) -> None:
+    async def inject_detail(self, html: str, *, expected_image_count: int) -> None:
         result: dict[str, Any] = await self.page.evaluate(DETAIL_SYNC_SCRIPT, html)
-        if not result.get("ok") or result.get("imageCount") != 4:
+        if not result.get("ok") or result.get("imageCount") != expected_image_count:
             raise ManualReviewRequired(f"detail form synchronization failed: {result}")
 
     async def quality_check(self) -> dict[str, object]:
