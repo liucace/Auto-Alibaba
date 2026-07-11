@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Generic, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -27,3 +28,46 @@ class InventoryRecord(BaseModel):
     model: str
     price: int
     stock: int
+
+
+class PackageInfo(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    length_cm: float
+    width_cm: float
+    height_cm: float
+    weight_g: int
+
+
+class ProductPayload(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    model: str
+    title: str
+    category_id: int
+    industry_category_id: int
+    attributes: dict[str, str]
+    specification: dict[str, str | int | float]
+    price: int
+    stock: int
+    delivery_time: str
+    shipping_template: str
+    package: PackageInfo
+
+
+class ProductImage(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    local_file: str
+    role: str
+    hosted_url: str | None = None
+
+
+class PreparedProduct(BaseModel):
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
+
+    payload: ProductPayload
+    source_directory: Path
+    artifacts_directory: Path
+    images: tuple[ProductImage, ...]
+    local_images: tuple[Path, ...]
