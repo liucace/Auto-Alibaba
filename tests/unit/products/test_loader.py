@@ -26,7 +26,12 @@ def test_load_prepared_product_overrides_price_and_stock_from_excel(tmp_path: Pa
                 "stock": 1,
                 "delivery_time": "48小时发货",
                 "shipping_template": "运费",
-                "package": {"length_cm": 80.5, "width_cm": 79.7, "height_cm": 27, "weight_g": 39300},
+                "package": {
+                    "length_cm": 80.5,
+                    "width_cm": 79.7,
+                    "height_cm": 27,
+                    "weight_g": 39300,
+                },
             }
         ),
         encoding="utf-8",
@@ -36,7 +41,11 @@ def test_load_prepared_product_overrides_price_and_stock_from_excel(tmp_path: Pa
             {
                 "model": "W3G630-NU33-03",
                 "images": [
-                    {"local_file": f"photo-{index}.jpg", "role": f"role-{index}", "hosted_url": None}
+                    {
+                        "local_file": f"photo-{index}.jpg",
+                        "role": f"role-{index}",
+                        "hosted_url": None,
+                    }
                     for index in range(4)
                 ],
             }

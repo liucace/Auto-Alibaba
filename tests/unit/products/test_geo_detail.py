@@ -1,5 +1,5 @@
-from bs4 import BeautifulSoup
 import pytest
+from bs4 import BeautifulSoup
 
 from app.domain.errors import ManualReviewRequired
 from app.products.geo_detail import render_geo_detail

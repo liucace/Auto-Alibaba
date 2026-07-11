@@ -1,13 +1,9 @@
 from pathlib import Path
-from typing import Generic, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
-T = TypeVar("T")
-
-
-class EvidenceValue(BaseModel, Generic[T]):
+class EvidenceValue[T](BaseModel):
     model_config = ConfigDict(frozen=True)
 
     value: T | None
@@ -43,6 +39,7 @@ class ProductPayload(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     model: str
+    brand: str = "ebm-papst"
     title: str
     category_id: int
     industry_category_id: int
