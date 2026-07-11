@@ -12,7 +12,7 @@ from app.ingest.inventory import load_inventory
 from app.ingest.model_number import normalize_model
 from app.products.loader import load_prepared_product
 from app.publisher.form_plan import build_form_plan
-from app.publisher.orchestrator import ProductUploader
+from app.publisher.orchestrator import ProductUploader, UploadResult
 from app.publisher.playwright_port import Playwright1688Port, build_session_tag
 from app.workflow.state_store import JsonStateStore
 
@@ -72,6 +72,24 @@ class CommandResult:
     ready: bool
 
 
+def build_task_state(*, result: UploadResult, cdp_url: str, page_url: str) -> dict[str, object]:
+    return {
+        "model": result.model,
+        "status": "READY_TO_SAVE" if result.ready_to_save else "BLOCKED",
+        "quality_check": {
+            "errors": result.errors,
+            "remaining_advice": list(result.advice),
+        },
+        "detail": {
+            "template_version": "reference-faithful-v1",
+            "local_html": str(result.detail_html_path),
+            "drawing_url": result.detail_drawing_url,
+            "image_count": result.detail_image_count,
+        },
+        "browser": {"cdp_url": cdp_url, "page_url": page_url},
+    }
+
+
 async def run_product(
     *, root: Path, model: str, cdp_url: str, albums: tuple[str, ...]
 ) -> CommandResult:
@@ -88,15 +106,11 @@ async def run_product(
     store = JsonStateStore(product.artifacts_directory / "task_state.json")
     try:
         result = await ProductUploader(port).run(product)
-        state = {
-            "model": normalized,
-            "status": "READY_TO_SAVE" if result.ready_to_save else "BLOCKED",
-            "quality_check": {
-                "errors": result.errors,
-                "remaining_advice": list(result.advice),
-            },
-            "browser": {"cdp_url": cdp_url, "page_url": port.page.url},
-        }
+        state = build_task_state(
+            result=result,
+            cdp_url=cdp_url,
+            page_url=port.page.url,
+        )
         store.save(state)
         return CommandResult(
             model=normalized,
