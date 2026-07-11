@@ -1,4 +1,5 @@
 import asyncio
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
@@ -6,6 +7,7 @@ from playwright.async_api import Browser, Page, Playwright, async_playwright
 
 from app.domain.errors import ManualReviewRequired
 from app.domain.models import ProductPayload
+from app.ingest.model_number import normalize_model
 from app.publisher.form_plan import build_form_plan
 from app.publisher.quality import parse_quality_check
 
@@ -56,6 +58,66 @@ def normalize_main_image_urls(raw_urls: list[str]) -> list[str]:
     return unique[-4:]
 
 
+def build_session_tag(model: str) -> str:
+    return f"1688-uploader:{normalize_model(model)}"
+
+
+def value_matches(current: str, desired: str, *, contains: bool = False) -> bool:
+    current_value = " ".join(current.split())
+    desired_value = " ".join(desired.split())
+    return desired_value in current_value if contains else current_value == desired_value
+
+
+async def _wait_for_picker_frame(
+    page: Any, *, timeout_seconds: float = 20, poll_seconds: float = 0.1
+) -> Any:
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout_seconds
+    while loop.time() < deadline:
+        picker = next(
+            (frame for frame in page.frames if "picman.1688.com" in frame.url),
+            None,
+        )
+        if picker is not None:
+            return picker
+        await asyncio.sleep(poll_seconds)
+    raise ManualReviewRequired("1688 image picker frame did not open")
+
+
+async def _wait_for_album_name(
+    read_options: Callable[[], Awaitable[list[str]]],
+    albums: tuple[str, ...],
+    *,
+    timeout_seconds: float = 15,
+    poll_seconds: float = 0.1,
+) -> str:
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout_seconds
+    while loop.time() < deadline:
+        available = [text.strip() for text in await read_options()]
+        chosen = next((album for album in albums if album in available), None)
+        if chosen is not None:
+            return chosen
+        await asyncio.sleep(poll_seconds)
+    raise ManualReviewRequired(f"no configured image album is available: {albums}")
+
+
+async def _wait_for_main_image_urls(
+    read_urls: Callable[[], Awaitable[list[str]]],
+    *,
+    timeout_seconds: float = 15,
+    poll_seconds: float = 0.1,
+) -> list[str]:
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout_seconds
+    while loop.time() < deadline:
+        urls = normalize_main_image_urls(await read_urls())
+        if len(urls) == 4:
+            return urls
+        await asyncio.sleep(poll_seconds)
+    raise ManualReviewRequired("four hosted main image URLs did not reach the form model")
+
+
 class Playwright1688Port:
     def __init__(
         self,
@@ -77,43 +139,51 @@ class Playwright1688Port:
         cdp_url: str,
         category_url: str,
         albums: tuple[str, ...] = ("ebm(L)", "ebm(LCC)"),
+        session_tag: str | None = None,
     ) -> "Playwright1688Port":
         runtime = await async_playwright().start()
         browser = await runtime.chromium.connect_over_cdp(cdp_url)
         if not browser.contexts:
             await runtime.stop()
             raise ManualReviewRequired("Chrome 9223 has no browser context")
-        page = await browser.contexts[0].new_page()
-        await page.goto(category_url, wait_until="domcontentloaded", timeout=30_000)
-        await page.wait_for_timeout(1_000)
+        context = browser.contexts[0]
+        page = None
+        if session_tag:
+            for candidate in reversed(context.pages):
+                if await candidate.evaluate("() => window.name") == session_tag:
+                    page = candidate
+                    break
+        if page is None:
+            page = await context.new_page()
+            if session_tag:
+                await page.evaluate("tag => { window.name = tag; }", session_tag)
+            await page.goto(category_url, wait_until="domcontentloaded", timeout=30_000)
+        await page.locator('input[placeholder^="建议使用通俗的产品名称"]').wait_for(
+            state="visible", timeout=20_000
+        )
         if "offer-new.1688.com/industry/publish.htm" not in page.url:
             raise ManualReviewRequired(f"unexpected page after navigation: {page.url}")
         return cls(page, albums=albums, runtime=runtime, browser=browser)
 
+    async def _read_current_main_image_urls(self) -> list[str]:
+        raw = await self.page.locator("#guid-primaryPicture img").evaluate_all(
+            "els => els.map(el => el.src).filter(src => src.includes('cbu01.alicdn.com/img/ibank/'))"
+        )
+        return normalize_main_image_urls(list(raw))
+
     async def upload_main_images(self, paths: tuple[Path, ...]) -> list[str]:
         if len(paths) != 4:
             raise ManualReviewRequired("exactly four main images are required")
+        existing = await self._read_current_main_image_urls()
+        if len(existing) == 4:
+            return existing
         await self.page.get_by_text("添加图片", exact=True).first.click(timeout=5_000)
-        picker = None
-        for _ in range(50):
-            picker = next(
-                (frame for frame in self.page.frames if "picman.1688.com" in frame.url),
-                None,
-            )
-            if picker is not None:
-                break
-            await asyncio.sleep(0.1)
-        if picker is None:
-            raise ManualReviewRequired("1688 image picker frame did not open")
+        picker = await _wait_for_picker_frame(self.page)
         await picker.get_by_text("我的电脑", exact=True).click(timeout=5_000)
         album_select = picker.locator("select:visible").last
-        available = await album_select.locator("option").all_text_contents()
-        chosen = next(
-            (album for album in self.albums if any(text.strip() == album for text in available)),
-            None,
+        chosen = await _wait_for_album_name(
+            lambda: album_select.locator("option").all_text_contents(), self.albums
         )
-        if chosen is None:
-            raise ManualReviewRequired(f"no configured image album is available: {self.albums}")
         await album_select.select_option(label=chosen)
         watermark = picker.locator('input[type="checkbox"]')
         if await watermark.count() and await watermark.first.is_checked():
@@ -129,33 +199,33 @@ class Playwright1688Port:
         )
         insert = picker.locator("em", has_text="插入图片")
         await insert.last.click(timeout=5_000)
-        await self.page.wait_for_timeout(800)
-        module = self.page.locator("#guid-primaryPicture")
-        raw_urls = await module.locator("img").evaluate_all(
-            "els => els.map(el => el.src).filter(src => src.includes('cbu01.alicdn.com/img/ibank/'))"
-        )
-        urls = normalize_main_image_urls(list(raw_urls))
-        if len(urls) != 4:
-            raise ManualReviewRequired(f"expected four hosted main images, got {len(urls)}")
-        return urls
+
+        async def read_urls() -> list[str]:
+            return await self._read_current_main_image_urls()
+
+        return await _wait_for_main_image_urls(read_urls)
 
     async def fill_product(self, payload: ProductPayload) -> None:
         plan = build_form_plan(payload)
         await self.page.locator('input[placeholder^="建议使用通俗的产品名称"]').fill(plan.title)
         attributes = self.page.locator('input[placeholder="如无合适选项可直接输入填写"]')
-        await attributes.nth(0).fill(plan.attribute_values[0])
-        await self.page.get_by_role("option", name=plan.attribute_values[0], exact=True).click(
-            timeout=3_000
-        )
-        await attributes.nth(2).fill("PP塑料")
-        material = self.page.get_by_role("option").filter(has_text="PP塑料")
-        if await material.count():
-            await material.first.click(timeout=3_000)
+        if not value_matches(await attributes.nth(0).input_value(), plan.attribute_values[0]):
+            await attributes.nth(0).fill(plan.attribute_values[0])
+            await self.page.get_by_role("option", name=plan.attribute_values[0], exact=True).click(
+                timeout=3_000
+            )
+        if not value_matches(await attributes.nth(2).input_value(), "PP塑料", contains=True):
+            await attributes.nth(2).fill("PP塑料")
+            material = self.page.get_by_role("option").filter(has_text="PP塑料")
+            if await material.count():
+                await material.first.click(timeout=3_000)
         for index in (1, 3, 4, 5, 6, 8):
             value = plan.attribute_values[index]
             if not value:
                 continue
             field = attributes.nth(index)
+            if value_matches(await field.input_value(), value):
+                continue
             await field.click()
             await field.fill("")
             await self.page.keyboard.type(value)
@@ -165,6 +235,8 @@ class Playwright1688Port:
         if await cells.count() < 7:
             raise ManualReviewRequired("product specification table is not ready")
         for index, value in enumerate(plan.spec_values):
+            if value_matches(await cells.nth(index).inner_text(), value, contains=True):
+                continue
             await cells.nth(index).click()
             focused = self.page.locator("input:focus")
             await focused.fill(value)
@@ -181,23 +253,27 @@ class Playwright1688Port:
         await sku.nth(1).fill(plan.sales_values[3])
         await sku.nth(1).press("Tab")
 
-        delivery = self.page.locator("#guid-buyerProtection .ant-select-selector").last
-        await delivery.click(force=True)
-        await (
-            self.page.locator(".ant-select-item-option-content:visible")
-            .filter(has_text=plan.delivery_time)
-            .last.click(timeout=3_000)
-        )
+        delivery_module = self.page.locator("#guid-buyerProtection")
+        if plan.delivery_time not in await delivery_module.inner_text():
+            delivery = delivery_module.locator(".ant-select-selector").last
+            await delivery.click(force=True)
+            await (
+                self.page.locator(".ant-select-item-option-content:visible")
+                .filter(has_text=plan.delivery_time)
+                .last.click(timeout=3_000)
+            )
 
         freight_module = self.page.locator("#guid-freight")
         selected = freight_module.locator(".ant-select-selection-item").last
         if (await selected.inner_text()).strip() != plan.shipping_template:
-            await freight_module.locator(".ant-select-selector").last.click(force=True)
-            await (
+            await selected.click(force=True)
+            option = (
                 self.page.locator(".ant-select-item-option-content:visible")
                 .filter(has_text=plan.shipping_template)
-                .last.click(timeout=3_000)
+                .last
             )
+            await option.wait_for(state="visible", timeout=5_000)
+            await option.click(timeout=3_000)
 
         package = self.page.locator('#guid-officialLogistics input[placeholder="请输入"]:visible')
         if await package.count() != 4:
@@ -241,3 +317,8 @@ class Playwright1688Port:
         text = (await button.inner_text()).strip()
         if text != "保存草稿" or "发布" in text:
             raise ManualReviewRequired(f"unsafe save boundary text: {text}")
+
+    async def disconnect(self) -> None:
+        if self._runtime is not None:
+            await self._runtime.stop()
+            self._runtime = None

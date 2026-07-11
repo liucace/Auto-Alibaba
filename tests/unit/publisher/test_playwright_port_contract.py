@@ -4,6 +4,7 @@ from app.publisher.playwright_port import (
     DETAIL_SYNC_SCRIPT,
     SAVE_DRAFT_BUTTON,
     Playwright1688Port,
+    build_session_tag,
     normalize_main_image_urls,
 )
 
@@ -40,3 +41,21 @@ def test_main_image_urls_are_unique_and_strip_thumbnails() -> None:
         "https://cbu01.alicdn.com/c.jpg",
         "https://cbu01.alicdn.com/d.jpg",
     ]
+
+
+def test_freight_dropdown_clicks_visible_selection_item() -> None:
+    source = inspect.getsource(Playwright1688Port.fill_product)
+
+    assert "await selected.click(force=True)" in source
+    assert 'freight_module.locator(".ant-select-selector").last.click' not in source
+
+
+def test_session_tag_is_stable_per_model() -> None:
+    assert build_session_tag(" w3g630-nu33-03 ") == "1688-uploader:W3G630-NU33-03"
+
+
+def test_image_upload_reuses_existing_four_urls() -> None:
+    source = inspect.getsource(Playwright1688Port.upload_main_images)
+
+    assert "existing = await self._read_current_main_image_urls()" in source
+    assert source.index("existing =") < source.index('get_by_text("添加图片"')
