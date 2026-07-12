@@ -17,8 +17,8 @@ def parse_quality_check(
     if not isinstance(content, str) or content == "null":
         raise ManualReviewRequired("description is not synchronized to the form model")
     sources = re.findall(r"<img\b[^>]*\bsrc=[\"']([^\"']+)", content, flags=re.I)
-    if len(sources) != 4 or len(set(sources)) != 4:
-        raise ManualReviewRequired("description must contain four distinct images")
+    if len(sources) < 5 or len(set(sources)) != len(sources):
+        raise ManualReviewRequired("description must contain at least five distinct images")
     advice: list[str] = []
     infos = response.get("data", {}).get("data", {}).get("qualityInfos", [])
     for info in infos:

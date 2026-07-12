@@ -1,4 +1,5 @@
 import asyncio
+import re
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
@@ -12,6 +13,7 @@ from app.publisher.form_plan import build_form_plan
 from app.publisher.quality import parse_quality_check
 
 SAVE_DRAFT_BUTTON = "#saveDraftButton"
+DETAIL_SELECTION_PATTERN = re.compile(r"要插入的图片\(1/\d+\)")
 
 DETAIL_SYNC_SCRIPT = r"""
 (html) => {
@@ -73,6 +75,12 @@ def value_matches(current: str, desired: str, *, contains: bool = False) -> bool
     return desired_value in current_value if contains else current_value == desired_value
 
 
+def detail_upload_is_ready(body_text: str) -> bool:
+    return bool(DETAIL_SELECTION_PATTERN.search(body_text)) and not any(
+        status in body_text for status in ("正在上传！", "准备上传！")
+    )
+
+
 async def _wait_for_picker_frame(
     page: Any, *, timeout_seconds: float = 20, poll_seconds: float = 0.1
 ) -> Any:
@@ -107,6 +115,24 @@ async def _wait_for_album_name(
     raise ManualReviewRequired(f"no configured image album is available: {albums}")
 
 
+async def _activate_computer_upload(
+    picker: Any, *, timeout_seconds: float = 15, poll_seconds: float = 0.1
+) -> Any:
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout_seconds
+    tab = picker.get_by_text("我的电脑", exact=True)
+    file_input = picker.locator('input[type="file"]').last
+    clicked = False
+    while loop.time() < deadline:
+        if await file_input.count():
+            return file_input
+        if not clicked and await tab.count() and await tab.first.is_visible():
+            await tab.first.click(timeout=5_000)
+            clicked = True
+        await asyncio.sleep(poll_seconds)
+    raise ManualReviewRequired("computer upload input did not become available")
+
+
 async def _wait_for_main_image_urls(
     read_urls: Callable[[], Awaitable[list[str]]],
     *,
@@ -138,6 +164,19 @@ async def _wait_for_new_detail_image_url(
             return added[0]
         await asyncio.sleep(poll_seconds)
     raise ManualReviewRequired("one hosted detail image URL did not reach TinyMCE")
+
+
+async def _wait_for_detail_upload(
+    picker: Any, *, timeout_seconds: float = 60, poll_seconds: float = 0.1
+) -> None:
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout_seconds
+    body = picker.locator("body")
+    while loop.time() < deadline:
+        if detail_upload_is_ready(await body.inner_text()):
+            return
+        await asyncio.sleep(poll_seconds)
+    raise ManualReviewRequired("one detail image did not finish uploading")
 
 
 class Playwright1688Port:
@@ -214,7 +253,7 @@ class Playwright1688Port:
             return existing
         await self.page.get_by_text("添加图片", exact=True).first.click(timeout=5_000)
         picker = await _wait_for_picker_frame(self.page)
-        await picker.get_by_text("我的电脑", exact=True).click(timeout=5_000)
+        await _activate_computer_upload(picker)
         album_select = picker.locator("select:visible").last
         chosen = await _wait_for_album_name(
             lambda: album_select.locator("option").all_text_contents(), self.albums
@@ -246,9 +285,11 @@ class Playwright1688Port:
         if not path.is_file() or path.stat().st_size == 0:
             raise ManualReviewRequired(f"detail image does not exist or is empty: {path}")
         before = set(await self._read_detail_image_urls())
-        await self.page.locator('#guid-description button[title="插入图片"]').click(timeout=5_000)
+        await self.page.locator('#guid-description a[role="button"][title="插入图片"]').click(
+            timeout=5_000
+        )
         picker = await _wait_for_picker_frame(self.page)
-        await picker.get_by_text("我的电脑", exact=True).click(timeout=5_000)
+        file_input = await _activate_computer_upload(picker)
         album_select = picker.locator("select:visible").last
         chosen = await _wait_for_album_name(
             lambda: album_select.locator("option").all_text_contents(), self.albums
@@ -257,14 +298,9 @@ class Playwright1688Port:
         watermark = picker.locator('input[type="checkbox"]')
         if await watermark.count() and await watermark.first.is_checked():
             await watermark.first.uncheck()
-        await picker.locator('input[type="file"]').last.set_input_files(str(path))
-        await picker.wait_for_function(
-            """() => document.body.innerText.includes('要插入的图片(1/1)')
-              && !document.body.innerText.includes('正在上传！')
-              && !document.body.innerText.includes('准备上传！')""",
-            timeout=60_000,
-        )
-        await picker.locator("em", has_text="插入图片").last.click(timeout=5_000)
+        await file_input.set_input_files(str(path))
+        await _wait_for_detail_upload(picker)
+        await picker.locator("em", has_text="插入图片").last.evaluate("element => element.click()")
         return await _wait_for_new_detail_image_url(self._read_detail_image_urls, before)
 
     async def fill_product(self, payload: ProductPayload) -> None:
@@ -278,9 +314,11 @@ class Playwright1688Port:
             )
         if not value_matches(await attributes.nth(2).input_value(), "PP塑料", contains=True):
             await attributes.nth(2).fill("PP塑料")
-            material = self.page.get_by_role("option").filter(has_text="PP塑料")
+            material = self.page.locator('[role="option"]:visible').filter(has_text="PP塑料")
             if await material.count():
                 await material.first.click(timeout=3_000)
+            else:
+                await attributes.nth(2).press("Tab")
         for index in (1, 3, 4, 5, 6, 8):
             value = plan.attribute_values[index]
             if not value:

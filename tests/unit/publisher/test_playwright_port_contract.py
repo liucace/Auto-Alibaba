@@ -4,6 +4,7 @@ from app.publisher.playwright_port import (
     DETAIL_SYNC_SCRIPT,
     SAVE_DRAFT_BUTTON,
     Playwright1688Port,
+    _activate_computer_upload,
     build_session_tag,
     normalize_hosted_image_urls,
     normalize_main_image_urls,
@@ -61,6 +62,13 @@ def test_freight_dropdown_clicks_visible_selection_item() -> None:
     assert 'freight_module.locator(".ant-select-selector").last.click' not in source
 
 
+def test_material_attribute_only_clicks_visible_option() -> None:
+    source = inspect.getsource(Playwright1688Port.fill_product)
+
+    assert '[role="option"]:visible' in source
+    assert 'attributes.nth(2).press("Tab")' in source
+
+
 def test_session_tag_is_stable_per_model() -> None:
     assert build_session_tag(" w3g630-nu33-03 ") == "1688-uploader:W3G630-NU33-03"
 
@@ -75,10 +83,22 @@ def test_image_upload_reuses_existing_four_urls() -> None:
 def test_detail_image_upload_uses_tinymce_picker_not_main_picture() -> None:
     source = inspect.getsource(Playwright1688Port.upload_detail_image)
 
-    assert 'button[title="插入图片"]' in source
-    assert "要插入的图片(1/1)" in source
+    assert 'a[role="button"][title="插入图片"]' in source
+    assert 'button[title="插入图片"]' not in source
+    assert "_wait_for_detail_upload" in source
+    assert "要插入的图片(1/1)" not in source
     assert "_read_detail_image_urls" in source
     assert "#guid-primaryPicture" not in source
+    assert "element => element.click()" in source
+
+
+def test_computer_upload_tab_is_only_clicked_when_visible() -> None:
+    source = inspect.getsource(_activate_computer_upload)
+
+    assert "await tab.count()" in source
+    assert "await tab.first.is_visible()" in source
+    assert "await tab.first.click" in source
+    assert 'input[type="file"]' in source
 
 
 def test_detail_injection_requires_explicit_expected_image_count() -> None:
