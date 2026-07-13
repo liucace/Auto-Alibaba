@@ -18,6 +18,21 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\setup.ps1 -CheckOnly
 
 在 Codex 中打开克隆后的仓库，重启 Codex 后从仓库 marketplace 安装 `auto-alibaba` Plugin。若仓库 marketplace 没有自动出现，可运行 `codex plugin marketplace add .` 后重启 Codex。Plugin 只包含工作流，不包含商品资料或登录状态。
 
+## 首次资料向导
+
+使用 Skill 上传某个型号时，会先运行资料向导。也可以手动执行：
+
+```powershell
+python -m app.cli init-product "W3G800-KS39-03/F01" --root .
+```
+
+如果缺失，向导会自动创建：
+
+- `price_inventory.xlsx`：提供当前完整型号的1688价格和库存，并自动加入当前型号行。型号保留 `/`；价格和库存留空时分别使用默认值 `10000` 和 `50`，继续前应打开表格核对。
+- `data/draft_saved/W3G800-KS39-03F01/`：保存当前型号的原始资料。目录名去掉 `/`，使用者需要放入至少一份包含完整型号的 PDF规格书，以及至少四张当前型号真实产品照片。
+
+首次运行若创建了模板或资料尚不完整，会输出 `NEEDS_INPUT` 并停止，不启动 Chrome。补充、核对资料后，用同一型号再次调用 Skill。`automation/` JSON、详情页和 `upload_optimized/` 图片由程序生成，不需要手写。
+
 Chrome 必须使用专用用户目录和远程调试端口启动，并提前登录 `work.1688.com`：
 
 ```powershell
@@ -32,7 +47,7 @@ $ChromeProfile = Join-Path $ProjectRoot ".chrome-profile"
 
 ```text
 price_inventory.xlsx
-data/draft_saved/<MODEL>/
+data/draft_saved/<MODEL_WITHOUT_SLASH>/
   <PDF规格书>
   <四张产品照片>
   upload_optimized/<照片名>-square.jpg
@@ -50,11 +65,17 @@ automation/<MODEL>/
 
 `preparation_evidence.json` 是资料与运行 JSON 之间的证据层。操作 Skill 会先核对 PDF 和四张照片，再生成该文件；用户不需要手写。程序只负责校验精确型号、读取库存、确定性生成 1:1 白边 JPEG 和三个运行 JSON，不会自动猜测 PDF 图纸中无法可靠文本提取的尺寸。
 
-Excel 必须存在精确型号行。价格或库存为空时分别使用 `10000`、`50`；型号行不存在时停止。
+Excel 必须存在精确型号行。资料向导会在缺少时追加完整型号；价格或库存为空时分别使用 `10000`、`50`。
 
 ## 使用
 
-先做只读检查：
+先初始化并检查当前型号资料：
+
+```powershell
+python -m app.cli init-product "W3G800-KS39-03/F01" --root .
+```
+
+资料返回 `READY` 后做只读环境检查：
 
 ```powershell
 python -m app.cli doctor --root .

@@ -5,6 +5,14 @@ from pathlib import Path
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[2]
+SKILL = (
+    ROOT
+    / "plugins"
+    / "auto-alibaba"
+    / "skills"
+    / "upload-1688-products"
+    / "SKILL.md"
+)
 SCRIPTS = (
     ROOT
     / "plugins"
@@ -46,3 +54,17 @@ def test_upload_skill_square_check_rejects_non_square_image(tmp_path: Path) -> N
 
     assert module.image_dimensions(square) == (100, 100)
     assert module.image_dimensions(rectangle) == (100, 80)
+
+
+def test_skill_requires_product_input_guide_before_upload() -> None:
+    skill = SKILL.read_text(encoding="utf-8")
+
+    assert 'python -m app.cli init-product "<MODEL>" --root "<PROJECT_ROOT>"' in skill
+    assert skill.index("python -m app.cli init-product") < skill.index(
+        "python -m app.cli doctor"
+    )
+    assert "NEEDS_INPUT" in skill
+    assert "price_inventory.xlsx" in skill
+    assert "PDF" in skill
+    assert "四张" in skill
+    assert "不得在同一轮" in skill

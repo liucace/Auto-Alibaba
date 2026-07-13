@@ -23,7 +23,18 @@ description: Use when uploading, fast-uploading, resuming, or checking prepared 
 
 2. 确保项目存在。在 `<PROJECT_ROOT>` 中运行 `python -m app.cli version`。仅当错误明确为缺少Python依赖时运行 `python -m pip install -e .`，其他错误直接报告。
 
-3. 运行专用Chrome检查：
+3. 在任何 `doctor`、`prepare`、Chrome 会话检查或上传锁之前，运行资料初始化向导：
+
+   ```powershell
+   python -m app.cli init-product "<MODEL>" --root "<PROJECT_ROOT>"
+   ```
+
+   - `price_inventory.xlsx` 用于提供当前完整型号的1688价格和库存；型号保留 `/`，价格和库存留空时分别使用 `10000` 和 `50`。
+   - `data/draft_saved/<FOLDER_KEY>/` 用于保存当前型号的原始资料；目录名去掉 `/`，其中需要至少一份包含完整型号的 PDF 规格书和至少四张真实产品照片。
+   - 如果返回 `NEEDS_INPUT`，向使用者列出 `created`、逐项转述 `requirements` 的用途和操作，随后停止。不得在同一轮再次运行向导或进入浏览器；等待使用者补充并重新调用 Skill。
+   - 如果返回 `BLOCKED`，准确报告 `message`，不要覆盖已有库存表或猜测资料。
+
+4. 运行专用Chrome检查：
 
    ```powershell
    powershell -NoProfile -ExecutionPolicy Bypass -File "<SKILL_DIR>\scripts\ensure_chrome.ps1" -Root "<PROJECT_ROOT>"
@@ -31,7 +42,7 @@ description: Use when uploading, fast-uploading, resuming, or checking prepared 
 
    失败时停止；不要终止端口占用者，不要改用内置浏览器或Playwright Chromium。
 
-4. 在项目目录运行：
+5. 在项目目录运行：
 
    ```powershell
    python -m app.cli doctor --root "<PROJECT_ROOT>"
@@ -39,9 +50,9 @@ description: Use when uploading, fast-uploading, resuming, or checking prepared 
 
    任一检查失败时停止。
 
-5. 如果 `automation/<FOLDER_KEY>/` 缺少任一运行 JSON，先读取当前型号 PDF（文本与尺寸图页面）并逐张查看照片，创建 `preparation_evidence.json`。证据必须包含完整型号、PDF文件、标题、属性、规格、包装长宽高/重量、恰好四张当前型号照片及角色、尺寸图页码与裁剪范围。只写有明确 PDF/铭牌/照片证据的值；任何关键值不确定时停止，禁止猜测相近型号或参数。目录键通过项目 `model_folder_key()` 生成，业务型号始终保留原字符。
+6. 如果 `automation/<FOLDER_KEY>/` 缺少任一运行 JSON，先读取当前型号 PDF（文本与尺寸图页面）并逐张查看照片，创建 `preparation_evidence.json`。证据必须包含完整型号、PDF文件、标题、属性、规格、包装长宽高/重量、恰好四张当前型号照片及角色、尺寸图页码与裁剪范围。只写有明确 PDF/铭牌/照片证据的值；任何关键值不确定时停止，禁止猜测相近型号或参数。目录键通过项目 `model_folder_key()` 生成，业务型号始终保留原字符。
 
-6. 正常上传只调用以下入口，不要绕过它直接运行项目CLI：
+7. 正常上传只调用以下入口，不要绕过它直接运行项目CLI：
 
    ```powershell
    python "<SKILL_DIR>\scripts\run_upload.py" --root "<PROJECT_ROOT>" --model "<MODEL>" --cdp-url "http://127.0.0.1:9223"
@@ -49,7 +60,7 @@ description: Use when uploading, fast-uploading, resuming, or checking prepared 
 
    入口会在运行 JSON 缺失时自动调用 `python -m app.cli prepare`，以本地确定性方式生成1:1白边主图副本和三个运行 JSON；不覆盖原照片，不使用生成式图像编辑。
 
-7. 只根据最终JSON和退出码判断结果：
+8. 只根据最终JSON和退出码判断结果：
 
    - `READY_TO_SAVE`：报告质量错误为0、详情图为5张，并说明已停在保存草稿前。
    - `NEEDS_LOGIN`：请用户在专用Chrome登录 `work.1688.com` 后再继续。

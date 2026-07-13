@@ -58,6 +58,10 @@ def test_setup_and_guidance_are_portable() -> None:
     assert "[switch]$CheckOnly" in setup
     assert "$PSScriptRoot" in setup
     assert "python -m app.cli doctor" in readme
+    assert "python -m app.cli init-product" in readme
+    assert "1688价格和库存" in readme
+    assert "PDF规格书" in readme
+    assert "四张" in readme
     assert "保存草稿" in agents
     for content in (setup, agents, readme):
         assert "D:\\Auto-Alibab" not in content
