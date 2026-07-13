@@ -266,14 +266,18 @@ def prepared_artifacts_complete(root: Path, folder_key: str) -> bool:
     )
 
 
-def _model_paths_from_project(root: Path, model: str) -> tuple[str, str]:
+def _product_inputs_from_project(
+    root: Path, model: str
+) -> tuple[str, str, dict[str, object]]:
     resolved = str(root.resolve())
     if resolved not in sys.path:
         sys.path.insert(0, resolved)
     from app.ingest.model_number import model_folder_key, normalize_model
+    from app.products.input_onboarding import initialize_product_inputs
 
     normalized = normalize_model(model)
-    return normalized, model_folder_key(normalized)
+    result = initialize_product_inputs(root, normalized)
+    return normalized, model_folder_key(normalized), result.to_dict()
 
 
 def _failure(model: str, message: str, **checks: Any) -> dict[str, Any]:
@@ -291,9 +295,11 @@ def execute(root: Path, model: str, cdp_url: str = CDP_URL) -> dict[str, Any]:
     if cdp_url != CDP_URL:
         return _failure(model, "Only local Google Chrome CDP 9223 is allowed.", cdp_url=False)
     try:
-        normalized, folder_key = _model_paths_from_project(root, model)
+        normalized, folder_key, inputs = _product_inputs_from_project(root, model)
     except Exception as error:
-        return _failure(model, f"{type(error).__name__}: {error}", project_import=False)
+        return _failure(model, f"{type(error).__name__}: {error}", product_inputs=False)
+    if inputs.get("ok") is not True:
+        return cast(dict[str, Any], inputs)
     try:
         lock = acquire_lock(root / ".uploader.lock", normalized)
     except ActiveUploadLock as error:
