@@ -4,7 +4,15 @@ from pathlib import Path
 
 from PIL import Image
 
-SCRIPTS = Path.home() / ".codex" / "skills" / "upload-1688-products" / "scripts"
+ROOT = Path(__file__).resolve().parents[2]
+SCRIPTS = (
+    ROOT
+    / "plugins"
+    / "auto-alibaba"
+    / "skills"
+    / "upload-1688-products"
+    / "scripts"
+)
 
 
 def _load(name: str):

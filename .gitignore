@@ -17,3 +17,10 @@ logs/runs/
 price_inventory.xlsx
 *.pyc
 .env
+.env.*
+.secrets/
+*.pem
+*.key
+*.pfx
+*.zip
+*.7z

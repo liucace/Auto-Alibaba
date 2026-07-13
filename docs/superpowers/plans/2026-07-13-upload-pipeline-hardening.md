@@ -79,9 +79,9 @@
 ### Task 6: Upload skill prepare integration and UTF-8
 
 **Files:**
-- Modify: `C:/Users/小城/.codex/skills/upload-1688-products/scripts/run_upload.py`
-- Modify: `C:/Users/小城/.codex/skills/upload-1688-products/scripts/preflight.py`
-- Modify: `C:/Users/小城/.codex/skills/upload-1688-products/SKILL.md`
+- Modify: `<SKILL_DIR>/scripts/run_upload.py`
+- Modify: `<SKILL_DIR>/scripts/preflight.py`
+- Modify: `<SKILL_DIR>/SKILL.md`
 
 - [ ] Add a `run_prepare()` subprocess helper that calls `python -m app.cli prepare MODEL --root ROOT`, sets `PYTHONUTF8=1` and `PYTHONIOENCODING=utf-8`, and returns structured stdout/stderr.
 - [ ] Call preparation only when the three artifacts are absent; never overwrite a complete prepared set during a resume.

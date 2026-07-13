@@ -1,19 +1,31 @@
 # 1688 持久化草稿上传器
 
-该工具通过 Playwright CDP 连接本机 Google Chrome 的 `9223` 端口，读取指定型号已经准备好的本地资料，一次完成 1688 固定类目商品表单，并停在“保存草稿”前。
+该工具通过 Playwright CDP 连接本机 Google Chrome 的 `9223` 端口，读取指定型号已经准备好的本地资料，一次完成 1688 固定类目商品表单，并停在“保存草稿”前。仓库同时包含可安装的 Codex `auto-alibaba` Plugin 和 `upload-1688-products` Skill。
 
-## 安装
+## 克隆与安装
 
 ```powershell
-python -m pip install -e ".[dev]"
+git clone https://github.com/liucace/Auto-Alibab.git
+Set-Location Auto-Alibab
+powershell -NoProfile -ExecutionPolicy Bypass -File .\setup.ps1
 ```
+
+也可以先执行无写入检查：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\setup.ps1 -CheckOnly
+```
+
+在 Codex 中打开克隆后的仓库，重启 Codex 后从仓库 marketplace 安装 `auto-alibaba` Plugin。若仓库 marketplace 没有自动出现，可运行 `codex plugin marketplace add .` 后重启 Codex。Plugin 只包含工作流，不包含商品资料或登录状态。
 
 Chrome 必须使用专用用户目录和远程调试端口启动，并提前登录 `work.1688.com`：
 
 ```powershell
+$ProjectRoot = (Get-Location).Path
+$ChromeProfile = Join-Path $ProjectRoot ".chrome-profile"
 & "$env:ProgramFiles\Google\Chrome\Application\chrome.exe" `
   --remote-debugging-port=9223 `
-  --user-data-dir="D:\Auto-Alibab\.chrome-profile"
+  --user-data-dir="$ChromeProfile"
 ```
 
 ## 资料约定
@@ -45,19 +57,19 @@ Excel 必须存在精确型号行。价格或库存为空时分别使用 `10000`
 先做只读检查：
 
 ```powershell
-python -m app.cli doctor --root D:\Auto-Alibab
+python -m app.cli doctor --root .
 ```
 
 根据已经核验的证据生成运行产物（不会打开浏览器）：
 
 ```powershell
-python -m app.cli prepare "W3G800-KS39-03/F01" --root D:\Auto-Alibab
+python -m app.cli prepare "W3G800-KS39-03/F01" --root .
 ```
 
 上传并填写一个型号：
 
 ```powershell
-python -m app.cli run W3G630-NU33-03 --root D:\Auto-Alibab
+python -m app.cli run W3G630-NU33-03 --root .
 ```
 
 默认规则固定为：

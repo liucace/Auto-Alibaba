@@ -16,7 +16,7 @@
 - Modify: `tests/unit/test_upload_skill_contract.py`
 - Create: `tests/unit/test_distribution_contract.py`
 
-- [ ] Add tests that load the repository skill path, reject `D:\Auto-Alibab` and `C:\Users\小城` in distributable files, verify the plugin manifest and marketplace paths, and assert ignored business-data patterns remain present.
+- [ ] Add tests that load the repository skill path, reject original-machine absolute paths in distributable files, verify the plugin manifest and marketplace paths, and assert ignored business-data patterns remain present.
 - [ ] Run `python -m pytest tests/unit/test_upload_skill_contract.py tests/unit/test_distribution_contract.py -q` and confirm failure because the repository plugin does not exist yet.
 
 ### Task 2: Scaffold and populate the repository plugin

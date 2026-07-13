@@ -12,13 +12,13 @@
 
 ## File map
 
-- Create `C:\Users\小城\.codex\skills\upload-1688-products\SKILL.md`: trigger and orchestration instructions.
-- Create `C:\Users\小城\.codex\skills\upload-1688-products\agents\openai.yaml`: Codex UI metadata.
-- Create `C:\Users\小城\.codex\skills\upload-1688-products\scripts\ensure_chrome.ps1`: verify or start the dedicated local Chrome CDP instance.
-- Create `C:\Users\小城\.codex\skills\upload-1688-products\scripts\inspect_session.py`: read-only session and page inspection.
-- Create `C:\Users\小城\.codex\skills\upload-1688-products\scripts\preflight.py`: local artifact and fixed-rule validation.
-- Create `C:\Users\小城\.codex\skills\upload-1688-products\scripts\run_upload.py`: lock, invoke the project CLI, and validate fresh state.
-- Create then remove `C:\Users\小城\.codex\tmp\upload-1688-products-tests\`: temporary RED/GREEN test harness.
+- Create `<SKILL_DIR>\SKILL.md`: trigger and orchestration instructions.
+- Create `<SKILL_DIR>\agents\openai.yaml`: Codex UI metadata.
+- Create `<SKILL_DIR>\scripts\ensure_chrome.ps1`: verify or start the dedicated local Chrome CDP instance.
+- Create `<SKILL_DIR>\scripts\inspect_session.py`: read-only session and page inspection.
+- Create `<SKILL_DIR>\scripts\preflight.py`: local artifact and fixed-rule validation.
+- Create `<SKILL_DIR>\scripts\run_upload.py`: lock, invoke the project CLI, and validate fresh state.
+- Create then remove `<CODEX_HOME>\tmp\upload-1688-products-tests\`: temporary RED/GREEN test harness.
 
 ### Task 1: Establish RED baseline and initialize the Skill
 
@@ -44,13 +44,13 @@ def test_skill_runtime_files_exist():
 
 - [ ] **Step 2: Run the baseline and verify RED**
 
-Run: `python -m pytest -q C:\Users\小城\.codex\tmp\upload-1688-products-tests`
+Run: `python -m pytest -q <CODEX_HOME>\tmp\upload-1688-products-tests`
 
 Expected: FAIL because the Skill directory does not exist.
 
 - [ ] **Step 3: Initialize the Skill**
 
-Run `init_skill.py upload-1688-products --path C:\Users\小城\.codex\skills --resources scripts` with interface values for display name, short description, and default prompt.
+Run `init_skill.py upload-1688-products --path <CODEX_HOME>\skills --resources scripts` with interface values for display name, short description, and default prompt.
 
 - [ ] **Step 4: Verify the scaffold exists**
 
@@ -156,7 +156,7 @@ Use `generate_openai_yaml.py` with:
 
 - [ ] **Step 3: Validate the Skill package**
 
-Run: `python C:\Users\小城\.codex\skills\.system\skill-creator\scripts\quick_validate.py C:\Users\小城\.codex\skills\upload-1688-products`
+Run: `python <CODEX_HOME>\skills\.system\skill-creator\scripts\quick_validate.py <SKILL_DIR>`
 
 Expected: validation passes.
 
@@ -178,7 +178,7 @@ Run Chrome guard, `doctor`, session inspection, and preflight for `W3G710-NU31-0
 
 - [ ] **Step 4: Remove temporary tests**
 
-Delete only `C:\Users\小城\.codex\tmp\upload-1688-products-tests` after all results are recorded. Preserve unrelated untracked project files.
+Delete only `<CODEX_HOME>\tmp\upload-1688-products-tests` after all results are recorded. Preserve unrelated untracked project files.
 
 - [ ] **Step 5: Report installation**
 

@@ -16,8 +16,8 @@
 - Modify `app/products/loader.py`: use the folder key for source and artifact directories.
 - Modify `tests/unit/ingest/test_model_number.py`: prove filesystem sanitization does not change business normalization.
 - Modify `tests/unit/products/test_loader.py`: prove a slash-bearing model loads from the slash-free source and artifact directories.
-- Modify `C:/Users/小城/.codex/skills/upload-1688-products/scripts/preflight.py`: resolve prepared artifacts through the project helper.
-- Modify `C:/Users/小城/.codex/skills/upload-1688-products/scripts/run_upload.py`: fingerprint task state through the slash-free artifact directory.
+- Modify `<SKILL_DIR>/scripts/preflight.py`: resolve prepared artifacts through the project helper.
+- Modify `<SKILL_DIR>/scripts/run_upload.py`: fingerprint task state through the slash-free artifact directory.
 
 ### Task 1: Define the filesystem-only folder key
 
@@ -215,15 +215,15 @@ git commit -m "fix: resolve product files with folder keys"
 ### Task 3: Keep the upload skill aligned with project path resolution
 
 **Files:**
-- Modify: `C:/Users/小城/.codex/skills/upload-1688-products/scripts/preflight.py`
-- Modify: `C:/Users/小城/.codex/skills/upload-1688-products/scripts/run_upload.py`
+- Modify: `<SKILL_DIR>/scripts/preflight.py`
+- Modify: `<SKILL_DIR>/scripts/run_upload.py`
 
 - [ ] **Step 1: Demonstrate the existing preflight failure**
 
 Run:
 
 ```powershell
-python "C:\Users\小城\.codex\skills\upload-1688-products\scripts\preflight.py" --root "D:\Auto-Alibab" --model "W3G800-KS39-03/F01"
+python "<SKILL_DIR>\scripts\preflight.py" --root "D:\Auto-Alibab" --model "W3G800-KS39-03/F01"
 ```
 
 Expected before the skill-script change: the output reports missing prepared artifacts under a slash-derived artifact path, even though project source lookup now resolves the slash-free source directory.
@@ -289,8 +289,8 @@ Keep locks, session inspection, CLI arguments, state model validation, and outpu
 - [ ] **Step 4: Run syntax and read-only preflight verification**
 
 ```powershell
-python -m py_compile "C:\Users\小城\.codex\skills\upload-1688-products\scripts\preflight.py" "C:\Users\小城\.codex\skills\upload-1688-products\scripts\run_upload.py"
-python "C:\Users\小城\.codex\skills\upload-1688-products\scripts\preflight.py" --root "D:\Auto-Alibab" --model "W3G800-KS39-03/F01"
+python -m py_compile "<SKILL_DIR>\scripts\preflight.py" "<SKILL_DIR>\scripts\run_upload.py"
+python "<SKILL_DIR>\scripts\preflight.py" --root "D:\Auto-Alibab" --model "W3G800-KS39-03/F01"
 ```
 
 Expected: syntax succeeds. Preflight either returns `READY` using `automation/W3G800-KS39-03F01`, or reports the exact remaining missing prepared artifacts at that slash-free path. It must not report the source directory missing.
@@ -314,7 +314,7 @@ Expected: every command exits zero with no failures.
 
 ```powershell
 python -m app.cli version
-powershell -NoProfile -ExecutionPolicy Bypass -File "C:\Users\小城\.codex\skills\upload-1688-products\scripts\ensure_chrome.ps1" -Root "D:\Auto-Alibab"
+powershell -NoProfile -ExecutionPolicy Bypass -File "<SKILL_DIR>\scripts\ensure_chrome.ps1" -Root "D:\Auto-Alibab"
 python -m app.cli doctor --root "D:\Auto-Alibab"
 ```
 
@@ -323,7 +323,7 @@ Expected: project version prints, dedicated Chrome reports `READY`, and every do
 - [ ] **Step 3: Execute only the approved uploader entry point**
 
 ```powershell
-python "C:\Users\小城\.codex\skills\upload-1688-products\scripts\run_upload.py" --root "D:\Auto-Alibab" --model "W3G800-KS39-03/F01" --cdp-url "http://127.0.0.1:9223"
+python "<SKILL_DIR>\scripts\run_upload.py" --root "D:\Auto-Alibab" --model "W3G800-KS39-03/F01" --cdp-url "http://127.0.0.1:9223"
 ```
 
 Expected success: final JSON has `status: READY_TO_SAVE`, `quality_errors: 0`, and task-state detail image count 5. The process stops before clicking “保存草稿”. If JSON is `BLOCKED`, `FAILED`, or `NEEDS_LOGIN`, stop and report its exact `message` and failed checks without claiming completion.

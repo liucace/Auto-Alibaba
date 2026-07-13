@@ -1,0 +1,4 @@
+interface:
+  display_name: "1688 商品快速上传"
+  short_description: "用本机 Chrome 9223 安全上传已准备好的1688风机商品"
+  default_prompt: "使用 $upload-1688-products 快速上传指定型号，并停在保存草稿前。"
