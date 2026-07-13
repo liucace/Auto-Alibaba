@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Install a deterministic personal Codex Skill that safely orchestrates the existing `D:\Auto-Alibab` uploader from new conversations and always stops before saving.
+**Goal:** Install a deterministic personal Codex Skill that safely orchestrates the existing `D:\Auto-Alibaba` uploader from new conversations and always stops before saving.
 
 **Architecture:** Keep the uploader as the only owner of form-filling logic. Add four Skill scripts: a PowerShell Chrome guard, a read-only CDP inspector, a local artifact preflight, and a locked subprocess wrapper that validates fresh task state. `SKILL.md` exposes one normal execution path through the wrapper.
 
@@ -140,7 +140,7 @@ Use frontmatter:
 ```yaml
 ---
 name: upload-1688-products
-description: Use when uploading, fast-uploading, resuming, or checking prepared 1688 industrial-fan products from the local Auto-Alibab project, including requests containing a fan model number or references to 1688 drafts.
+description: Use when uploading, fast-uploading, resuming, or checking prepared 1688 industrial-fan products from the local Auto-Alibaba project, including requests containing a fan model number or references to 1688 drafts.
 ---
 ```
 
@@ -168,7 +168,7 @@ Expected: all pass.
 
 - [ ] **Step 2: Run project regression tests and static checks**
 
-Run `python -m pytest -q`, `python -m ruff check .`, `python -m ruff format --check .`, and `python -m mypy app` from `D:\Auto-Alibab`.
+Run `python -m pytest -q`, `python -m ruff check .`, `python -m ruff format --check .`, and `python -m mypy app` from `D:\Auto-Alibaba`.
 
 Expected: all pass.
 

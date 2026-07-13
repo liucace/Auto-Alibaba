@@ -97,5 +97,5 @@
 - [ ] Run `python -m pytest -q`; expect zero failures.
 - [ ] Run `python -m ruff check .`; expect no issues.
 - [ ] Run `python -m mypy app`; expect no issues.
-- [ ] Run `python -m app.cli prepare W3G800-KS39-03/F01 --root D:\Auto-Alibab`; expect validated artifacts without changing the exact business model.
+- [ ] Run `python -m app.cli prepare W3G800-KS39-03/F01 --root D:\Auto-Alibaba`; expect validated artifacts without changing the exact business model.
 - [ ] Run upload-skill preflight for the model; expect `READY`, four square images, and contained paths.

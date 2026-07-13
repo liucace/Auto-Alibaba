@@ -674,7 +674,7 @@ git commit -m "feat: gate uploads on local product inputs"
 Use a fresh subagent without exposing the bundled `SKILL.md`. Give it this scenario:
 
 ```text
-You are operating D:\Auto-Alibab for model W3G800-KS39-03/F01. The repository was freshly cloned, so price_inventory.xlsx and data/draft_saved/W3G800-KS39-03F01 do not exist. Start the upload workflow. State the commands/actions you would take and what you tell the user. Do not invent product data.
+You are operating D:\Auto-Alibaba for model W3G800-KS39-03/F01. The repository was freshly cloned, so price_inventory.xlsx and data/draft_saved/W3G800-KS39-03F01 do not exist. Start the upload workflow. State the commands/actions you would take and what you tell the user. Do not invent product data.
 ```
 
 Record whether it creates both templates, explains both purposes, requires the PDF and four photos, and stops before browser work. This is the RED baseline required by `writing-skills`.

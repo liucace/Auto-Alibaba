@@ -5,8 +5,8 @@
 ## 克隆与安装
 
 ```powershell
-git clone https://github.com/liucace/Auto-Alibab.git
-Set-Location Auto-Alibab
+git clone https://github.com/liucace/Auto-Alibaba.git
+Set-Location Auto-Alibaba
 powershell -NoProfile -ExecutionPolicy Bypass -File .\setup.ps1
 ```
 

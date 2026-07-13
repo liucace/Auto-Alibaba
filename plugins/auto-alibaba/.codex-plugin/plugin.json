@@ -7,7 +7,7 @@
   },
   "skills": "./skills/",
   "interface": {
-    "displayName": "Auto Alibaba",
+    "displayName": "Auto-Alibaba",
     "shortDescription": "Prepare and fill 1688 fan listings safely.",
     "longDescription": "Bundles the upload-1688-products workflow for evidence-backed preparation, local preflight, and draft-boundary-safe 1688 form filling.",
     "developerName": "liucace",

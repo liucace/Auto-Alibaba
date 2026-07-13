@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make Auto-Alibab cloneable and installable from the public `liucace/Auto-Alibab` GitHub repository with its Codex upload workflow bundled as a repository plugin.
+**Goal:** Make Auto-Alibaba cloneable and installable from the public `liucace/Auto-Alibaba` GitHub repository with its Codex upload workflow bundled as a repository plugin.
 
 **Architecture:** Keep the Python application at the repository root and package the existing upload skill under `plugins/auto-alibaba/`. Resolve the project root from explicit input, environment, or workspace rather than personal paths. A repository marketplace exposes the plugin, while setup documentation and scripts configure Python locally without carrying business data or credentials.
 
@@ -67,5 +67,5 @@
 - No source-file changes.
 
 - [ ] Confirm `gh auth status` reports active account `liucace` with `repo` scope.
-- [ ] Create and push with `gh repo create liucace/Auto-Alibab --public --source . --remote origin --push`.
-- [ ] Verify `gh repo view liucace/Auto-Alibab --json nameWithOwner,visibility,url,defaultBranchRef` reports `PUBLIC`, `liucace/Auto-Alibab`, and `main` at the pushed commit.
+- [ ] Create and push with `gh repo create liucace/Auto-Alibaba --public --source . --remote origin --push`.
+- [ ] Verify `gh repo view liucace/Auto-Alibaba --json nameWithOwner,visibility,url,defaultBranchRef` reports `PUBLIC`, `liucace/Auto-Alibaba`, and `main` at the pushed commit.

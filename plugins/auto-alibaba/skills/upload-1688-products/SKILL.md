@@ -1,13 +1,13 @@
 ---
 name: upload-1688-products
-description: Use when uploading, fast-uploading, resuming, or checking prepared 1688 industrial-fan products from the local Auto-Alibab project, including requests containing a fan model number, 快速上传商品, 上传型号, 1688草稿, or 继续上传.
+description: Use when uploading, fast-uploading, resuming, or checking prepared 1688 industrial-fan products from the local Auto-Alibaba project, including requests containing a fan model number, 快速上传商品, 上传型号, 1688草稿, or 继续上传.
 ---
 
 # 1688 商品快速上传
 
 ## Overview
 
-调用当前 Auto-Alibab 工作区的持久化上传器，必要时先从当前型号 PDF、四张照片和库存表准备运行产物，再通过本机 Google Chrome CDP 9223 填写商品，并严格停在“保存草稿”前。
+调用当前 Auto-Alibaba 工作区的持久化上传器，必要时先从当前型号 PDF、四张照片和库存表准备运行产物，再通过本机 Google Chrome CDP 9223 填写商品，并严格停在“保存草稿”前。
 
 开始时解析两个路径：`<PROJECT_ROOT>` 优先使用用户明确给出的项目目录，其次使用 `AUTO_ALIBABA_ROOT`，最后使用当前包含 `pyproject.toml` 和 `app/` 的工作区；`<SKILL_DIR>` 是本 `SKILL.md` 所在目录。无法唯一解析时停止并询问，不猜测磁盘位置。
 

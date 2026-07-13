@@ -223,7 +223,7 @@ git commit -m "fix: resolve product files with folder keys"
 Run:
 
 ```powershell
-python "<SKILL_DIR>\scripts\preflight.py" --root "D:\Auto-Alibab" --model "W3G800-KS39-03/F01"
+python "<SKILL_DIR>\scripts\preflight.py" --root "D:\Auto-Alibaba" --model "W3G800-KS39-03/F01"
 ```
 
 Expected before the skill-script change: the output reports missing prepared artifacts under a slash-derived artifact path, even though project source lookup now resolves the slash-free source directory.
@@ -290,7 +290,7 @@ Keep locks, session inspection, CLI arguments, state model validation, and outpu
 
 ```powershell
 python -m py_compile "<SKILL_DIR>\scripts\preflight.py" "<SKILL_DIR>\scripts\run_upload.py"
-python "<SKILL_DIR>\scripts\preflight.py" --root "D:\Auto-Alibab" --model "W3G800-KS39-03/F01"
+python "<SKILL_DIR>\scripts\preflight.py" --root "D:\Auto-Alibaba" --model "W3G800-KS39-03/F01"
 ```
 
 Expected: syntax succeeds. Preflight either returns `READY` using `automation/W3G800-KS39-03F01`, or reports the exact remaining missing prepared artifacts at that slash-free path. It must not report the source directory missing.
@@ -314,8 +314,8 @@ Expected: every command exits zero with no failures.
 
 ```powershell
 python -m app.cli version
-powershell -NoProfile -ExecutionPolicy Bypass -File "<SKILL_DIR>\scripts\ensure_chrome.ps1" -Root "D:\Auto-Alibab"
-python -m app.cli doctor --root "D:\Auto-Alibab"
+powershell -NoProfile -ExecutionPolicy Bypass -File "<SKILL_DIR>\scripts\ensure_chrome.ps1" -Root "D:\Auto-Alibaba"
+python -m app.cli doctor --root "D:\Auto-Alibaba"
 ```
 
 Expected: project version prints, dedicated Chrome reports `READY`, and every doctor check is `OK`.
@@ -323,7 +323,7 @@ Expected: project version prints, dedicated Chrome reports `READY`, and every do
 - [ ] **Step 3: Execute only the approved uploader entry point**
 
 ```powershell
-python "<SKILL_DIR>\scripts\run_upload.py" --root "D:\Auto-Alibab" --model "W3G800-KS39-03/F01" --cdp-url "http://127.0.0.1:9223"
+python "<SKILL_DIR>\scripts\run_upload.py" --root "D:\Auto-Alibaba" --model "W3G800-KS39-03/F01" --cdp-url "http://127.0.0.1:9223"
 ```
 
 Expected success: final JSON has `status: READY_TO_SAVE`, `quality_errors: 0`, and task-state detail image count 5. The process stops before clicking “保存草稿”. If JSON is `BLOCKED`, `FAILED`, or `NEEDS_LOGIN`, stop and report its exact `message` and failed checks without claiming completion.

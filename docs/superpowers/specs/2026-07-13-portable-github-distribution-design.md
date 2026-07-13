@@ -2,14 +2,14 @@
 
 ## Goal
 
-Publish Auto-Alibab as a public GitHub repository that any Windows Codex user can clone, install, and run without depending on the original computer's username or `D:\Auto-Alibab` path.
+Publish Auto-Alibaba as a public GitHub repository that any Windows Codex user can clone, install, and run without depending on the original computer's username or `D:\Auto-Alibaba` path.
 
 ## Repository Layout
 
 The existing Python application remains at the repository root. The Codex workflow becomes a repository plugin:
 
 ```text
-Auto-Alibab/
+Auto-Alibaba/
   app/
   tests/
   plugins/auto-alibaba/
@@ -50,7 +50,7 @@ The GitHub repository is public, so every tracked file and every pushed commit i
 
 ## Publishing
 
-Create `liucace/Auto-Alibab` as a public GitHub repository, add it as `origin`, and push `main`. Existing unrelated untracked local files remain uncommitted. The repository README documents clone, setup, plugin installation, local data placement, login, doctor, and safe upload boundaries.
+Create `liucace/Auto-Alibaba` as a public GitHub repository, add it as `origin`, and push `main`. Existing unrelated untracked local files remain uncommitted. The repository README documents clone, setup, plugin installation, local data placement, login, doctor, and safe upload boundaries.
 
 ## Verification
 

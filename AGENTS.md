@@ -1,4 +1,4 @@
-# Auto-Alibab Repository Guidance
+# Auto-Alibaba Repository Guidance
 
 - Use Python 3.12+ and run `python -m pytest -q`, `python -m ruff check .`, and `python -m mypy app` after code changes.
 - Preserve the exact business model, including `/`; use `model_folder_key()` only for filesystem directories.

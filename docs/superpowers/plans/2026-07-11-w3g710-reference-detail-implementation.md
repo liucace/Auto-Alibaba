@@ -346,11 +346,11 @@ Run a read-only CDP script to collect the four existing hosted main image URLs, 
 
 - [ ] **Step 4: Run the real uploader**
 
-Run: `python -m app.cli doctor --root D:\Auto-Alibab`
+Run: `python -m app.cli doctor --root D:\Auto-Alibaba`
 
 Expected: Python, workbook and Chrome CDP 9223 are all OK.
 
-Run: `python -m app.cli run W3G710-NU31-03 --root D:\Auto-Alibab`
+Run: `python -m app.cli run W3G710-NU31-03 --root D:\Auto-Alibaba`
 
 Expected: the tagged current-model page is reused, the detail drawing uploads once, the final HTML is injected, quality errors are 0, and the command reports `READY_TO_SAVE` without clicking save.
 
