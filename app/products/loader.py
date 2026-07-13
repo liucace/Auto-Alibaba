@@ -3,14 +3,15 @@ from pathlib import Path
 
 from app.domain.errors import ManualReviewRequired
 from app.domain.models import DetailDrawingSpec, PreparedProduct, ProductImage, ProductPayload
-from app.ingest.model_number import exact_model_match, normalize_model
+from app.ingest.model_number import exact_model_match, model_folder_key, normalize_model
 from app.products.detail_assets import prepare_detail_drawing
 
 
 def find_source_directory(root: Path, model: str) -> Path:
     normalized = normalize_model(model)
+    folder_key = model_folder_key(normalized)
     for lifecycle in ("processing", "inbox", "draft_saved"):
-        candidate = root / "data" / lifecycle / normalized
+        candidate = root / "data" / lifecycle / folder_key
         if candidate.is_dir():
             return candidate
     raise ManualReviewRequired(f"source directory does not exist for {normalized}")
@@ -24,7 +25,7 @@ def load_prepared_product(
     stock: int,
 ) -> PreparedProduct:
     normalized = normalize_model(model)
-    artifacts = root / "automation" / normalized
+    artifacts = root / "automation" / model_folder_key(normalized)
     payload_path = artifacts / "1688_payload.json"
     images_path = artifacts / "image_analysis.json"
     detail_assets_path = artifacts / "detail_assets.json"

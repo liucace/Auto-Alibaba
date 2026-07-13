@@ -30,6 +30,7 @@ class UploadResult:
     detail_drawing_url: str
     detail_html_path: Path
     detail_image_count: int
+    error_details: tuple[dict[str, str], ...] = ()
 
 
 class ProductUploader:
@@ -62,6 +63,12 @@ class ProductUploader:
         advice = (
             tuple(str(item) for item in raw_advice) if isinstance(raw_advice, (list, tuple)) else ()
         )
+        raw_error_details = quality.get("error_details", [])
+        error_details = (
+            tuple(dict(item) for item in raw_error_details if isinstance(item, dict))
+            if isinstance(raw_error_details, (list, tuple))
+            else ()
+        )
         if errors == 0:
             await self._port.verify_save_boundary()
         return UploadResult(
@@ -72,4 +79,5 @@ class ProductUploader:
             detail_drawing_url=drawing_url,
             detail_html_path=detail_path,
             detail_image_count=5,
+            error_details=error_details,
         )

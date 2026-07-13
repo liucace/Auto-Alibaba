@@ -96,3 +96,81 @@ def test_source_prefers_processing_then_draft_saved(tmp_path: Path) -> None:
     processing.mkdir(parents=True)
 
     assert find_source_directory(tmp_path, "X") == processing
+
+
+def test_slash_model_loads_from_slash_free_folder_key(tmp_path: Path) -> None:
+    model = "W3G800-KS39-03/F01"
+    folder_key = "W3G800-KS39-03F01"
+    artifacts = tmp_path / "automation" / folder_key
+    source = tmp_path / "data" / "draft_saved" / folder_key
+    artifacts.mkdir(parents=True)
+    source.mkdir(parents=True)
+    (source / "fan.pdf").write_bytes(b"pdf")
+    drawing = source / "upload_optimized" / "detail-drawing.jpg"
+    drawing.parent.mkdir()
+    drawing.write_bytes(b"jpeg")
+    for index in range(4):
+        (source / f"photo-{index}.jpg").write_bytes(b"jpg")
+    (artifacts / "1688_payload.json").write_text(
+        json.dumps(
+            {
+                "model": model,
+                "title": "title",
+                "category_id": 1034320,
+                "industry_category_id": 2293,
+                "attributes": {"电压": "400"},
+                "specification": {"规格型号": model},
+                "price": 1,
+                "stock": 1,
+                "delivery_time": "48小时发货",
+                "shipping_template": "运费",
+                "package": {
+                    "length_cm": 80.5,
+                    "width_cm": 79.7,
+                    "height_cm": 27,
+                    "weight_g": 39300,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (artifacts / "image_analysis.json").write_text(
+        json.dumps(
+            {
+                "model": model,
+                "images": [
+                    {
+                        "local_file": f"photo-{index}.jpg",
+                        "role": f"role-{index}",
+                        "hosted_url": None,
+                    }
+                    for index in range(4)
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (artifacts / "detail_assets.json").write_text(
+        json.dumps(
+            {
+                "model": model,
+                "pdf_file": "fan.pdf",
+                "page": 1,
+                "crop": [0.05, 0.1, 0.95, 0.8],
+                "local_file": "upload_optimized/detail-drawing.jpg",
+                "hosted_url": None,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    product = load_prepared_product(
+        tmp_path,
+        model,
+        price=10000,
+        stock=50,
+    )
+
+    assert product.payload.model == model
+    assert product.source_directory.name == folder_key
+    assert product.artifacts_directory.name == folder_key

@@ -11,5 +11,9 @@ def normalize_model(raw: str) -> str:
     return re.sub(r"-+", "-", visible)
 
 
+def model_folder_key(raw: str) -> str:
+    return normalize_model(raw).replace("/", "")
+
+
 def exact_model_match(left: str, right: str) -> bool:
     return normalize_model(left) == normalize_model(right)

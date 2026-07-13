@@ -13,6 +13,7 @@ from app.publisher.form_plan import build_form_plan
 from app.publisher.quality import parse_quality_check
 
 SAVE_DRAFT_BUTTON = "#saveDraftButton"
+MEDIA_FINGERPRINT_KEY = "1688-uploader:media-fingerprint"
 DETAIL_SELECTION_PATTERN = re.compile(r"要插入的图片\(1/\d+\)")
 
 DETAIL_SYNC_SCRIPT = r"""
@@ -73,6 +74,22 @@ def value_matches(current: str, desired: str, *, contains: bool = False) -> bool
     current_value = " ".join(current.split())
     desired_value = " ".join(desired.split())
     return desired_value in current_value if contains else current_value == desired_value
+
+
+def media_is_current(current: str | None, expected: str) -> bool:
+    return bool(expected) and current == expected
+
+
+async def _fill_and_verify(field: Any, value: str, *, label: str, retries: int = 1) -> None:
+    for _ in range(retries + 1):
+        await field.click()
+        await field.fill("")
+        await field.fill(value)
+        await field.press("Tab")
+        await asyncio.sleep(0)
+        if value_matches(await field.input_value(), value):
+            return
+    raise ManualReviewRequired(f"field did not retain expected value: {label}")
 
 
 def detail_upload_is_ready(body_text: str) -> bool:
@@ -185,11 +202,13 @@ class Playwright1688Port:
         page: Page,
         *,
         albums: tuple[str, ...] = ("ebm(L)", "ebm(LCC)"),
+        media_fingerprint: str | None = None,
         runtime: Playwright | None = None,
         browser: Browser | None = None,
     ) -> None:
         self.page = page
         self.albums = albums
+        self.media_fingerprint = media_fingerprint
         self._runtime = runtime
         self._browser = browser
 
@@ -201,6 +220,7 @@ class Playwright1688Port:
         category_url: str,
         albums: tuple[str, ...] = ("ebm(L)", "ebm(LCC)"),
         session_tag: str | None = None,
+        media_fingerprint: str | None = None,
     ) -> "Playwright1688Port":
         runtime = await async_playwright().start()
         browser = await runtime.chromium.connect_over_cdp(cdp_url)
@@ -212,6 +232,13 @@ class Playwright1688Port:
         if session_tag:
             for candidate in reversed(context.pages):
                 if await candidate.evaluate("() => window.name") == session_tag:
+                    if media_fingerprint is not None:
+                        current = await candidate.evaluate(
+                            "key => window.sessionStorage.getItem(key)", MEDIA_FINGERPRINT_KEY
+                        )
+                        if not media_is_current(current, media_fingerprint):
+                            await candidate.close(run_before_unload=False)
+                            continue
                     page = candidate
                     break
         if page is None:
@@ -224,7 +251,13 @@ class Playwright1688Port:
         )
         if "offer-new.1688.com/industry/publish.htm" not in page.url:
             raise ManualReviewRequired(f"unexpected page after navigation: {page.url}")
-        return cls(page, albums=albums, runtime=runtime, browser=browser)
+        return cls(
+            page,
+            albums=albums,
+            media_fingerprint=media_fingerprint,
+            runtime=runtime,
+            browser=browser,
+        )
 
     async def _read_current_main_image_urls(self) -> list[str]:
         raw = await self.page.locator("#guid-primaryPicture img").evaluate_all(
@@ -250,7 +283,14 @@ class Playwright1688Port:
             raise ManualReviewRequired("exactly four main images are required")
         existing = await self._read_current_main_image_urls()
         if len(existing) == 4:
-            return existing
+            if self.media_fingerprint is None:
+                return existing
+            current = await self.page.evaluate(
+                "key => window.sessionStorage.getItem(key)", MEDIA_FINGERPRINT_KEY
+            )
+            if media_is_current(current, self.media_fingerprint):
+                return existing
+            raise ManualReviewRequired("existing main images do not match prepared media fingerprint")
         await self.page.get_by_text("添加图片", exact=True).first.click(timeout=5_000)
         picker = await _wait_for_picker_frame(self.page)
         await _activate_computer_upload(picker)
@@ -277,7 +317,13 @@ class Playwright1688Port:
         async def read_urls() -> list[str]:
             return await self._read_current_main_image_urls()
 
-        return await _wait_for_main_image_urls(read_urls)
+        urls = await _wait_for_main_image_urls(read_urls)
+        if self.media_fingerprint is not None:
+            await self.page.evaluate(
+                "([key, value]) => window.sessionStorage.setItem(key, value)",
+                [MEDIA_FINGERPRINT_KEY, self.media_fingerprint],
+            )
+        return urls
 
     async def upload_detail_image(self, path: Path, *, existing_url: str | None = None) -> str:
         if existing_url and existing_url.startswith("https://cbu01.alicdn.com/img/ibank/"):
@@ -343,15 +389,11 @@ class Playwright1688Port:
             await focused.press("Tab")
 
         price = self.page.locator('#guid-priceRange input[placeholder="请输入"]:visible')
-        await price.nth(0).fill(plan.sales_values[0])
-        await price.nth(0).press("Tab")
-        await price.nth(1).fill(plan.sales_values[1])
-        await price.nth(1).press("Tab")
+        await _fill_and_verify(price.nth(0), plan.sales_values[0], label="minimum order quantity")
+        await _fill_and_verify(price.nth(1), plan.sales_values[1], label="price")
         sku = self.page.locator('#guid-skuTable input[placeholder="请输入"]:visible')
-        await sku.nth(0).fill(plan.sales_values[2])
-        await sku.nth(0).press("Tab")
-        await sku.nth(1).fill(plan.sales_values[3])
-        await sku.nth(1).press("Tab")
+        await _fill_and_verify(sku.nth(0), plan.sales_values[2], label="stock")
+        await _fill_and_verify(sku.nth(1), plan.sales_values[3], label="sku model")
 
         delivery_module = self.page.locator("#guid-buyerProtection")
         if plan.delivery_time not in await delivery_module.inner_text():
@@ -366,24 +408,31 @@ class Playwright1688Port:
         freight_module = self.page.locator("#guid-freight")
         selected = freight_module.locator(".ant-select-selection-item").last
         if (await selected.inner_text()).strip() != plan.shipping_template:
-            await selected.click(force=True)
-            option = (
-                self.page.locator(".ant-select-item-option-content:visible")
-                .filter(has_text=plan.shipping_template)
-                .last
-            )
-            await option.wait_for(state="visible", timeout=5_000)
-            await option.click(timeout=3_000)
+            for _ in range(2):
+                await selected.click(force=True)
+                option = (
+                    self.page.locator(".ant-select-item-option-content:visible")
+                    .filter(has_text=plan.shipping_template)
+                    .last
+                )
+                await option.wait_for(state="visible", timeout=5_000)
+                await option.click(timeout=3_000)
+                await self.page.wait_for_timeout(100)
+                if value_matches(await selected.inner_text(), plan.shipping_template):
+                    break
+            else:
+                raise ManualReviewRequired("freight template did not retain expected value")
 
         package = self.page.locator('#guid-officialLogistics input[placeholder="请输入"]:visible')
         if await package.count() != 4:
             raise ManualReviewRequired("package dimension inputs are not ready")
         for index, value in enumerate(plan.package_values):
+            await _fill_and_verify(package.nth(index), value, label=f"package value {index + 1}")
+        await self.page.wait_for_timeout(250)
+        for index, value in enumerate(plan.package_values):
             field = package.nth(index)
-            await field.click()
-            await field.fill("")
-            await self.page.keyboard.type(value)
-            await self.page.keyboard.press("Tab")
+            if not value_matches(await field.input_value(), value):
+                await _fill_and_verify(field, value, label=f"package value {index + 1}")
 
     async def inject_detail(self, html: str, *, expected_image_count: int) -> None:
         result: dict[str, Any] = await self.page.evaluate(DETAIL_SYNC_SCRIPT, html)

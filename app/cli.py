@@ -8,9 +8,12 @@ from typing import Annotated
 
 import typer
 
+from app.domain.errors import AutomationError
 from app.ingest.inventory import load_inventory
 from app.ingest.model_number import normalize_model
 from app.products.loader import load_prepared_product
+from app.products.main_images import media_fingerprint
+from app.products.preparer import prepare_product
 from app.publisher.form_plan import build_form_plan
 from app.publisher.orchestrator import ProductUploader, UploadResult
 from app.publisher.playwright_port import Playwright1688Port, build_session_tag
@@ -28,6 +31,42 @@ def main() -> None:
 def version() -> None:
     """Print the uploader version."""
     typer.echo("1688-draft-automation 0.1.0")
+
+
+@app.command()
+def prepare(
+    model: Annotated[str, typer.Argument(help="完整商品型号")],
+    root: Annotated[Path, typer.Option("--root", help="商品资料工作区")] = Path("."),
+) -> None:
+    """Build validated upload artifacts without opening Chrome."""
+    try:
+        result = prepare_product(root.resolve(), model)
+    except AutomationError as error:
+        typer.echo(
+            json.dumps(
+                {"ok": False, "status": "BLOCKED", "model": model, "message": str(error)},
+                ensure_ascii=False,
+                separators=(",", ":"),
+            )
+        )
+        raise typer.Exit(code=2) from error
+    typer.echo(
+        json.dumps(
+            {
+                "ok": True,
+                "status": "PREPARED",
+                "model": result.model,
+                "price": result.price,
+                "stock": result.stock,
+                "source_directory": str(result.source_directory),
+                "artifacts_directory": str(result.artifacts_directory),
+                "main_images": len(result.images),
+                "detail_drawing": str(result.detail_drawing),
+            },
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+    )
 
 
 def doctor_checks(root: Path, cdp_url: str) -> list[tuple[str, bool, str]]:
@@ -79,6 +118,7 @@ def build_task_state(*, result: UploadResult, cdp_url: str, page_url: str) -> di
         "quality_check": {
             "errors": result.errors,
             "remaining_advice": list(result.advice),
+            "error_details": list(result.error_details),
         },
         "detail": {
             "template_version": "reference-faithful-v1",
@@ -96,12 +136,14 @@ async def run_product(
     normalized = normalize_model(model)
     inventory = load_inventory(root / "price_inventory.xlsx", normalized)
     product = load_prepared_product(root, normalized, price=inventory.price, stock=inventory.stock)
+    fingerprint = media_fingerprint(product.local_images)
     plan = build_form_plan(product.payload)
     port = await Playwright1688Port.connect(
         cdp_url=cdp_url,
         category_url=plan.category_url,
         albums=albums,
         session_tag=build_session_tag(normalized),
+        media_fingerprint=fingerprint,
     )
     store = JsonStateStore(product.artifacts_directory / "task_state.json")
     try:

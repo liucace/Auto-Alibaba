@@ -4,7 +4,7 @@
 
 **Goal:** Add deterministic product preparation and make resumed 1688 uploads reject stale media, verify critical fields, and report exact blocking errors.
 
-**Architecture:** New preparation and media modules remain browser-independent. The browser port receives a content fingerprint, uses it to decide whether a tagged unsaved page is reusable, and centralizes critical-field verification. The installed upload skill calls preparation and preserves structured UTF-8 results.
+**Architecture:** New preparation and media modules remain browser-independent. The Skill performs the visual evidence step and writes typed `preparation_evidence.json`; the preparation command validates it and creates deterministic artifacts. The browser port receives a content fingerprint, uses it to decide whether a tagged unsaved page is reusable, and centralizes critical-field verification. The installed upload skill calls preparation and preserves structured UTF-8 results.
 
 **Tech Stack:** Python 3.14, PyMuPDF, Pillow, Pydantic, Playwright, Typer, pytest.
 
@@ -29,10 +29,10 @@
 - Create: `tests/unit/products/test_preparer.py`
 - Modify: `app/cli.py`
 
-- [ ] Write pure-parser tests using representative ebm-papst PDF page text. Require exact model, 400V, 380-480V, 50/60Hz, 940rpm, 1950W, 3.1A, 220Pa, 25740m³/h, 39.85kg, 800mm, IP55, F class, 970mm outer square, 334mm depth, and drawing page 3.
+- [x] Define and test a typed evidence file containing the visually verified PDF fields, four photographs, package values, and drawing crop. The application validates that the declared PDF contains the exact requested model instead of attempting unreliable OCR of vector dimension outlines.
 - [ ] Write an integration test with a synthetic six-page PDF, four photographs, and an inventory workbook; call `prepare_product()` and assert all three JSON files plus four square copies and a drawing JPEG exist under the slash-free folder key.
 - [ ] Run `python -m pytest tests/unit/products/test_preparer.py -v`; expect import failure.
-- [ ] Implement strict regex helpers and `prepare_product(root, model)`. Reject missing/ambiguous evidence, select exactly four non-generated source photos below the source directory, create square copies, write validated JSON atomically, and render the drawing through existing `prepare_detail_drawing()`.
+- [x] Implement `prepare_product(root, model)`. Reject missing/mismatched evidence and path escapes, require exactly four declared source photos below the source directory, create square copies, write validated JSON atomically, and render the drawing through existing `prepare_detail_drawing()`.
 - [ ] Add Typer command `prepare MODEL --root PATH` that prints a compact JSON result and exits nonzero on `AutomationError`.
 - [ ] Run focused prepare tests; expect PASS.
 
