@@ -1,6 +1,6 @@
 {
   "name": "auto-alibaba",
-  "version": "0.1.0",
+  "version": "0.1.0+codex.20260713163209",
   "description": "Portable Codex workflow for preparing and safely filling 1688 industrial-fan listings.",
   "author": {
     "name": "liucace"
@@ -12,7 +12,10 @@
     "longDescription": "Bundles the upload-1688-products workflow for evidence-backed preparation, local preflight, and draft-boundary-safe 1688 form filling.",
     "developerName": "liucace",
     "category": "Productivity",
-    "capabilities": ["Read", "Write"],
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
     "defaultPrompt": "Use the bundled upload-1688-products skill to prepare and upload a fan model, stopping before save."
   }
 }

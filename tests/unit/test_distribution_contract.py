@@ -60,6 +60,12 @@ def test_public_repository_and_plugin_display_use_auto_alibaba() -> None:
     assert agents.startswith("# Auto-Alibaba Repository Guidance")
 
 
+def test_plugin_version_has_one_codex_cachebuster() -> None:
+    manifest = json.loads((PLUGIN / ".codex-plugin" / "plugin.json").read_text("utf-8"))
+
+    assert re.fullmatch(r"0\.1\.0\+codex\.\d{14}", manifest["version"])
+
+
 def test_distributable_plugin_has_no_original_machine_paths() -> None:
     files = [path for path in PLUGIN.rglob("*") if path.is_file()]
 

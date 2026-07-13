@@ -164,7 +164,7 @@ Add to the Plugin contract test:
 def test_plugin_version_has_one_codex_cachebuster() -> None:
     manifest = json.loads((PLUGIN / ".codex-plugin" / "plugin.json").read_text("utf-8"))
 
-    assert re.fullmatch(r"0\.1\.0\+codex\.local-\d{8}-\d{6}", manifest["version"])
+    assert re.fullmatch(r"0\.1\.0\+codex\.\d{14}", manifest["version"])
 ```
 
 - [ ] **Step 2: Run the cachebuster test and verify RED**
@@ -182,7 +182,7 @@ $PluginCreator = Join-Path $env:USERPROFILE ".codex\skills\.system\plugin-creato
 python (Join-Path $PluginCreator "scripts\update_plugin_cachebuster.py") ".\plugins\auto-alibaba"
 ```
 
-Expected: the base version remains `0.1.0` and exactly one `+codex.local-YYYYMMDD-HHMMSS` suffix is present.
+Expected: the base version remains `0.1.0` and exactly one UTC `+codex.YYYYMMDDHHMMSS` suffix is present, matching the installed helper implementation.
 
 - [ ] **Step 4: Validate the Plugin, Skill, and focused tests**
 
