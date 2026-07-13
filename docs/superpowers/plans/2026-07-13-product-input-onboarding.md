@@ -22,7 +22,7 @@
 - Modify `tests/unit/test_upload_skill_contract.py`: assert the wrapper and Skill contain the onboarding gate.
 - Modify `README.md`: document the generated inputs, their purposes, and the rerun flow.
 - Modify `tests/unit/test_distribution_contract.py`: keep README/Plugin distribution guidance enforceable.
-- Sync the verified bundled Skill into `C:/Users/小城/.codex/skills/upload-1688-products/`; this installed copy is deployment state and is not committed.
+- Sync the verified bundled Skill into `%USERPROFILE%/.codex/skills/upload-1688-products/`; this installed copy is deployment state and is not committed.
 
 ### Task 1: Core product-input initialization
 
@@ -778,7 +778,7 @@ git commit -m "docs: guide first-time product inputs"
 
 **Files:**
 - Copy from: `plugins/auto-alibaba/skills/upload-1688-products/`
-- Copy to: `C:/Users/小城/.codex/skills/upload-1688-products/`
+- Copy to: `%USERPROFILE%/.codex/skills/upload-1688-products/`
 - Verify all changed tracked files.
 
 - [ ] **Step 1: Run the complete automated suite**
@@ -796,9 +796,11 @@ Expected: zero test failures, zero Ruff violations, and mypy exits `0`.
 Run the installed Plugin validator and Skill validator:
 
 ```powershell
-python "C:\Users\小城\.codex\skills\.system\plugin-creator\scripts\validate_plugin.py" "D:\Auto-Alibab\plugins\auto-alibaba"
-python "C:\Users\小城\.codex\skills\.system\skill-creator\scripts\quick_validate.py" "D:\Auto-Alibab\plugins\auto-alibaba\skills\upload-1688-products"
-Get-ChildItem "D:\Auto-Alibab\plugins\auto-alibaba\skills\upload-1688-products\scripts" -Filter *.py | ForEach-Object { python -m py_compile $_.FullName }
+$PluginValidator = Join-Path $env:USERPROFILE ".codex\skills\.system\plugin-creator\scripts\validate_plugin.py"
+$SkillValidator = Join-Path $env:USERPROFILE ".codex\skills\.system\skill-creator\scripts\quick_validate.py"
+python $PluginValidator ".\plugins\auto-alibaba"
+python $SkillValidator ".\plugins\auto-alibaba\skills\upload-1688-products"
+Get-ChildItem ".\plugins\auto-alibaba\skills\upload-1688-products\scripts" -Filter *.py | ForEach-Object { python -m py_compile $_.FullName }
 ```
 
 Expected: both validators exit `0`. Also compile all Python files under the bundled Skill scripts with `python -m py_compile`.
@@ -815,7 +817,7 @@ Confirm no tracked file includes `price_inventory.xlsx`, product PDFs/photos, `d
 
 - [ ] **Step 4: Sync the installed Skill only after repository verification passes**
 
-Use a recursive copy from the bundled Skill directory to `C:/Users/小城/.codex/skills/upload-1688-products/`, then byte-compare all relative files. The `writing-skills` deployment gate requires the tested repository copy to be the source of truth.
+Use a recursive copy from the bundled Skill directory to `%USERPROFILE%/.codex/skills/upload-1688-products/`, then byte-compare all relative files. The `writing-skills` deployment gate requires the tested repository copy to be the source of truth.
 
 - [ ] **Step 5: Perform a clean temporary-directory smoke test**
 
