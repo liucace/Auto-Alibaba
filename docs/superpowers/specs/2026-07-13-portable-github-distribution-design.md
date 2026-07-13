@@ -2,7 +2,7 @@
 
 ## Goal
 
-Publish Auto-Alibab as a private GitHub repository that another Windows Codex user can clone, install, and run without depending on the original computer's username or `D:\Auto-Alibab` path.
+Publish Auto-Alibab as a public GitHub repository that any Windows Codex user can clone, install, and run without depending on the original computer's username or `D:\Auto-Alibab` path.
 
 ## Repository Layout
 
@@ -46,16 +46,16 @@ Git tracks source code, tests, documentation, plugin files, marketplace metadata
 - generated `automation/` state and optimized images
 - `.chrome-profile/`, cookies, credentials, `.env`, logs, caches, or temporary files
 
-The GitHub repository is private. Each receiving computer creates its own Chrome profile and logs in independently. No secret is copied from the original machine.
+The GitHub repository is public, so every tracked file and every pushed commit is treated as permanently visible. Each receiving computer creates its own Chrome profile and logs in independently. No secret or business data is copied from the original machine. A staged-content secret and personal-path scan is mandatory before the first push.
 
 ## Publishing
 
-Create `liucace/Auto-Alibab` as a private GitHub repository, add it as `origin`, and push `main`. Existing unrelated untracked local files remain uncommitted. The repository README documents clone, setup, plugin installation, local data placement, login, doctor, and safe upload boundaries.
+Create `liucace/Auto-Alibab` as a public GitHub repository, add it as `origin`, and push `main`. Existing unrelated untracked local files remain uncommitted. The repository README documents clone, setup, plugin installation, local data placement, login, doctor, and safe upload boundaries.
 
 ## Verification
 
 - Plugin manifest and repository marketplace pass the official local validators.
 - Contract tests fail if fixed personal paths return or if the skill cannot locate the project from a different root.
 - `setup.ps1` receives a non-destructive validation mode used by tests.
-- Full pytest, Ruff, mypy, Skill validation, secret/path scans, and `git diff --check` pass before publishing.
-- A post-push check verifies the remote is private and the expected commit is present.
+- Full pytest, Ruff, mypy, Skill validation, secret/personal-path scans, and `git diff --check` pass before publishing.
+- A post-push check verifies the remote is public and the expected commit is present.
