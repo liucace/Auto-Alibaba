@@ -11,6 +11,7 @@ import typer
 from app.domain.errors import AutomationError
 from app.ingest.inventory import load_inventory
 from app.ingest.model_number import normalize_model
+from app.products.input_onboarding import initialize_product_inputs
 from app.products.loader import load_prepared_product
 from app.products.main_images import media_fingerprint
 from app.products.preparer import prepare_product
@@ -31,6 +32,30 @@ def main() -> None:
 def version() -> None:
     """Print the uploader version."""
     typer.echo("1688-draft-automation 0.1.0")
+
+
+@app.command("init-product")
+def init_product(
+    model: Annotated[str, typer.Argument(help="完整商品型号")],
+    root: Annotated[Path, typer.Option("--root", help="商品资料工作区")] = Path("."),
+) -> None:
+    """Create and explain required local product inputs."""
+    try:
+        result = initialize_product_inputs(root.resolve(), model)
+        payload = result.to_dict()
+    except AutomationError as error:
+        payload = {
+            "ok": False,
+            "status": "BLOCKED",
+            "model": model,
+            "created": [],
+            "checks": {},
+            "requirements": [],
+            "message": str(error),
+        }
+    typer.echo(json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
+    if not payload["ok"]:
+        raise typer.Exit(code=2)
 
 
 @app.command()
