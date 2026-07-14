@@ -96,6 +96,7 @@ def test_geo_detail_renders_explicit_ebm_evidence_through_the_same_generic_path(
             "specification": {
                 "规格型号": "W3G710-NU31-03",
                 "额定电压_v": 400,
+                "最大静压_inH2O": 1.25,
                 "尺寸_mm": 710,
             },
         }
@@ -112,6 +113,8 @@ def test_geo_detail_renders_explicit_ebm_evidence_through_the_same_generic_path(
     ]
     for evidenced_text in ("ebm-papst", "W3G710-NU31-03", "400V", "AxiBlade", "MODBUS", "5片PP"):
         assert evidenced_text in html
+    assert "1.25inH₂O" in html
+    assert "1.25inH2O" not in html
     assert "尺寸 (mm)" in html
 
 
