@@ -52,7 +52,7 @@ def product(tmp_path: Path) -> PreparedProduct:
     (tmp_path / "detail_assets.json").write_text(
         json.dumps(
             {
-                "model": "W3G630-NU33-03",
+                "model": "A2175-HBL",
                 "pdf_file": "fan.pdf",
                 "page": 3,
                 "crop": [0.05, 0.1, 0.95, 0.8],
@@ -64,26 +64,13 @@ def product(tmp_path: Path) -> PreparedProduct:
     )
     return PreparedProduct(
         payload=ProductPayload(
-            model="W3G630-NU33-03",
-            brand="ebm-papst",
+            model="A2175-HBL",
+            brand="SUNON",
             title="title",
             category_id=1034320,
             industry_category_id=2293,
-            attributes={"电压": "400"},
-            specification={
-                "规格型号": "W3G630-NU33-03",
-                "电压范围_v": "380-480",
-                "频率_hz": "50/60",
-                "电机功率_w": 3600,
-                "风叶直径_m": 0.63,
-                "转速_rpm": 1800,
-                "风量_m3h": 22150,
-                "最大静压_pa": 440,
-                "电流_a": 5.5,
-                "重量_kg": 39.3,
-                "防护等级": "IP55",
-                "绝缘等级": "F级",
-            },
+            attributes={"叶片数": "18"},
+            specification={"规格型号": "A2175-HBL", "电压范围_v": "220-240"},
             price=10000,
             stock=10,
             delivery_time="48小时发货",
@@ -95,7 +82,7 @@ def product(tmp_path: Path) -> PreparedProduct:
         images=images,
         local_images=paths,
         detail_drawing=DetailDrawingSpec(
-            model="W3G630-NU33-03",
+            model="A2175-HBL",
             pdf_file="fan.pdf",
             page=3,
             crop=(0.05, 0.1, 0.95, 0.8),
@@ -127,6 +114,8 @@ async def test_uploader_runs_fixed_order_and_checks_quality_once(product: Prepar
     assert isinstance(detail, str)
     assert expected_count == 5
     assert detail.count("<img ") == 5
+    assert "SUNON" in detail
+    assert "220-240V" in detail
     assert (product.artifacts_directory / "detail.html").read_text(encoding="utf-8") == detail
     detail_assets = json.loads(
         (product.artifacts_directory / "detail_assets.json").read_text(encoding="utf-8")

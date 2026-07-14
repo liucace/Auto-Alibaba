@@ -146,7 +146,7 @@ def build_task_state(*, result: UploadResult, cdp_url: str, page_url: str) -> di
             "error_details": list(result.error_details),
         },
         "detail": {
-            "template_version": "reference-faithful-v1",
+            "template_version": "evidence-driven-v2",
             "local_html": str(result.detail_html_path),
             "drawing_url": result.detail_drawing_url,
             "image_count": result.detail_image_count,

@@ -6,7 +6,7 @@ import app.cli as cli_module
 from app.publisher.orchestrator import UploadResult
 
 
-def test_task_state_records_reference_detail_metadata(tmp_path: Path) -> None:
+def test_task_state_records_evidence_driven_detail_metadata(tmp_path: Path) -> None:
     html = tmp_path / "detail.html"
     result = UploadResult(
         model="W3G710-NU31-03",
@@ -26,7 +26,7 @@ def test_task_state_records_reference_detail_metadata(tmp_path: Path) -> None:
 
     assert state["status"] == "READY_TO_SAVE"
     assert state["detail"] == {
-        "template_version": "reference-faithful-v1",
+        "template_version": "evidence-driven-v2",
         "local_html": str(html),
         "drawing_url": "https://cbu01.alicdn.com/img/ibank/drawing.jpg",
         "image_count": 5,
