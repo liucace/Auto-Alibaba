@@ -54,7 +54,7 @@ def test_album_creation_uses_observed_picker_controls() -> None:
 
     assert 'locator("a.album-create")' in source
     assert 'locator(".create:visible")' in source
-    assert 'locator("input.create-field")' in source
+    assert 'locator("input.create-field:visible")' in source
     assert 'locator("#album-manager-pri")' in source
     assert 'locator("a.button.insert")' in source
     assert "新建相册" not in source

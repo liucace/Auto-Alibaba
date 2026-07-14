@@ -383,7 +383,7 @@ async def _create_picker_album(picker: Any, album_select: Any, name: str) -> Non
             await trigger.last.click(timeout=5_000)
         except PlaywrightTimeoutError as error:
             raise ManualReviewRequired("image picker does not expose new album creation") from error
-    field = dialog.locator("input.create-field").last
+    field = dialog.locator("input.create-field:visible").last
     private = dialog.locator("#album-manager-pri")
     confirm = dialog.locator("a.button.insert").last
     try:
