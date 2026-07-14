@@ -353,40 +353,35 @@ class Playwright1688Port:
         plan = build_form_plan(payload)
         await self.page.locator('input[placeholder^="建议使用通俗的产品名称"]').fill(plan.title)
         attributes = self.page.locator('input[placeholder="如无合适选项可直接输入填写"]')
-        if not value_matches(await attributes.nth(0).input_value(), plan.attribute_values[0]):
-            await attributes.nth(0).fill(plan.attribute_values[0])
-            await self.page.get_by_role("option", name=plan.attribute_values[0], exact=True).click(
-                timeout=3_000
-            )
-        if not value_matches(await attributes.nth(2).input_value(), "PP塑料", contains=True):
-            await attributes.nth(2).fill("PP塑料")
-            material = self.page.locator('[role="option"]:visible').filter(has_text="PP塑料")
-            if await material.count():
-                await material.first.click(timeout=3_000)
-            else:
-                await attributes.nth(2).press("Tab")
-        for index in (1, 3, 4, 5, 6, 8):
-            value = plan.attribute_values[index]
-            if not value:
-                continue
-            field = attributes.nth(index)
-            if value_matches(await field.input_value(), value):
+        for entry in plan.attribute_fields:
+            field = attributes.nth(entry.index)
+            if value_matches(await field.input_value(), entry.value):
                 continue
             await field.click()
             await field.fill("")
-            await self.page.keyboard.type(value)
-            await self.page.keyboard.press("Tab")
+            await self.page.keyboard.type(entry.value)
+            option = self.page.get_by_role("option", name=entry.value, exact=True)
+            if await option.count() and await option.first.is_visible():
+                await option.first.click(timeout=3_000)
+            else:
+                await field.press("Tab")
 
         cells = self.page.locator(".ind-table-antd-input-box")
         if await cells.count() < 7:
             raise ManualReviewRequired("product specification table is not ready")
-        for index, value in enumerate(plan.spec_values):
-            if value_matches(await cells.nth(index).inner_text(), value, contains=True):
+        for entry in plan.spec_fields:
+            cell = cells.nth(entry.index)
+            if value_matches(await cell.inner_text(), entry.value, contains=True):
                 continue
-            await cells.nth(index).click()
+            await cell.click()
             focused = self.page.locator("input:focus")
-            await focused.fill(value)
+            await focused.fill(entry.value)
             await focused.press("Tab")
+            await asyncio.sleep(0)
+            if not value_matches(await cell.inner_text(), entry.value, contains=True):
+                raise ManualReviewRequired(
+                    f"field did not retain expected value: {entry.label}"
+                )
 
         price = self.page.locator('#guid-priceRange input[placeholder="请输入"]:visible')
         await _fill_and_verify(price.nth(0), plan.sales_values[0], label="minimum order quantity")

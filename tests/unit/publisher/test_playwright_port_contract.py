@@ -62,11 +62,25 @@ def test_freight_dropdown_clicks_visible_selection_item() -> None:
     assert 'freight_module.locator(".ant-select-selector").last.click' not in source
 
 
-def test_material_attribute_only_clicks_visible_option() -> None:
+def test_fill_product_iterates_only_sparse_form_fields() -> None:
     source = inspect.getsource(Playwright1688Port.fill_product)
 
-    assert '[role="option"]:visible' in source
-    assert 'attributes.nth(2).press("Tab")' in source
+    assert "for entry in plan.attribute_fields" in source
+    assert "attributes.nth(entry.index)" in source
+    assert "for entry in plan.spec_fields" in source
+    assert "cells.nth(entry.index)" in source
+    assert "PP塑料" not in source
+    assert "attributes.nth(0)" not in source
+    assert "attributes.nth(2)" not in source
+
+
+def test_sparse_attribute_option_is_clicked_only_when_exact_and_visible() -> None:
+    source = inspect.getsource(Playwright1688Port.fill_product)
+
+    assert 'get_by_role("option", name=entry.value, exact=True)' in source
+    assert "await option.first.is_visible()" in source
+    assert "await option.first.click" in source
+    assert 'await field.press("Tab")' in source
 
 
 def test_session_tag_is_stable_per_model() -> None:
