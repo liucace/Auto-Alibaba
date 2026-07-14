@@ -78,6 +78,15 @@ def test_prepare_product_builds_validated_artifacts_and_square_images(tmp_path: 
             "防护等级": "IP55",
             "绝缘等级": "F级",
         },
+        "operating_points": [
+            {
+                "frequency_hz": 50,
+                "speed_rpm": 940,
+                "airflow_m3h": 25740,
+                "current_a": 3.1,
+                "power_w": 1950,
+            }
+        ],
         "package": {"length_cm": 97, "width_cm": 97, "height_cm": 33.4, "weight_g": 39850},
         "images": images,
         "drawing": {"page": 1, "crop": [0.0, 0.0, 1.0, 1.0]},
@@ -96,6 +105,7 @@ def test_prepare_product_builds_validated_artifacts_and_square_images(tmp_path: 
     detail = json.loads((artifacts / "detail_assets.json").read_text(encoding="utf-8"))
     assert payload["model"] == model
     assert payload["brand"] == "ebm-papst"
+    assert payload["operating_points"][0]["airflow_m3h"] == 25740
     assert detail["model"] == model
     assert len(analysis["images"]) == 4
     for item in analysis["images"]:

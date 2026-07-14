@@ -36,6 +36,19 @@ class PackageInfo(BaseModel):
     weight_g: int
 
 
+class OperatingPoint(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    frequency_hz: int = Field(gt=0)
+    speed_rpm: float | None = Field(default=None, gt=0)
+    airflow_cfm: float | None = Field(default=None, ge=0)
+    airflow_m3h: float | None = Field(default=None, ge=0)
+    static_pressure_in_h2o: float | None = Field(default=None, ge=0)
+    current_a: float | None = Field(default=None, ge=0)
+    power_w: float | None = Field(default=None, ge=0)
+    noise_db_a: float | None = Field(default=None, ge=0)
+
+
 class ProductPayload(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -46,6 +59,7 @@ class ProductPayload(BaseModel):
     industry_category_id: int
     attributes: dict[str, str]
     specification: dict[str, str | int | float]
+    operating_points: tuple[OperatingPoint, ...] = ()
     price: int
     stock: int
     delivery_time: str

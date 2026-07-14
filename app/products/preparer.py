@@ -8,12 +8,19 @@ import fitz  # type: ignore[import-untyped]
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError
 
 from app.domain.errors import ManualReviewRequired
-from app.domain.models import DetailDrawingSpec, PackageInfo, ProductImage, ProductPayload
+from app.domain.models import (
+    DetailDrawingSpec,
+    OperatingPoint,
+    PackageInfo,
+    ProductImage,
+    ProductPayload,
+)
 from app.ingest.inventory import load_inventory
 from app.ingest.model_number import exact_model_match, model_folder_key, normalize_model
 from app.products.detail_assets import prepare_detail_drawing
 from app.products.loader import find_source_directory
 from app.products.main_images import prepare_square_image
+from app.products.specification_policy import materialize_platform_specification
 
 
 class DrawingEvidence(BaseModel):
@@ -32,6 +39,7 @@ class PreparationEvidence(BaseModel):
     title: str
     attributes: dict[str, str]
     specification: dict[str, str | int | float]
+    operating_points: tuple[OperatingPoint, ...] = ()
     package: PackageInfo
     images: tuple[ProductImage, ...]
     drawing: DrawingEvidence
@@ -156,6 +164,10 @@ def prepare_product(root: Path, model: str) -> PrepareResult:
             ProductImage(local_file=relative_output.as_posix(), role=image.role, hosted_url=None)
         )
 
+    specification, operating_points = materialize_platform_specification(
+        evidence.specification,
+        evidence.operating_points,
+    )
     payload = ProductPayload(
         model=normalized,
         brand=evidence.brand,
@@ -163,7 +175,8 @@ def prepare_product(root: Path, model: str) -> PrepareResult:
         category_id=1034320,
         industry_category_id=2293,
         attributes=evidence.attributes,
-        specification=evidence.specification,
+        specification=specification,
+        operating_points=operating_points,
         price=inventory.price,
         stock=inventory.stock,
         delivery_time="48小时发货",
