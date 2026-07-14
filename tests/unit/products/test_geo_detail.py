@@ -118,6 +118,97 @@ def test_geo_detail_renders_explicit_ebm_evidence_through_the_same_generic_path(
     assert "尺寸 (mm)" in html
 
 
+@pytest.mark.parametrize(
+    ("key", "value", "expected"),
+    [
+        ("电压范围_v", "220 VAC", "220 VAC"),
+        ("最大静压_inH2O", "1.2inH2O", "1.2inH2O"),
+        ("最大静压_inH2O", "1.2inH₂O", "1.2inH₂O"),
+    ],
+)
+def test_geo_detail_preserves_existing_unit_aliases(
+    sunon_sparse_payload: ProductPayload,
+    key: str,
+    value: str,
+    expected: str,
+) -> None:
+    payload = sunon_sparse_payload.model_copy(
+        update={"specification": {"规格型号": "A2175-HBL", key: value}}
+    )
+
+    html = _render(payload)
+
+    assert expected in html
+    assert "VACV" not in html
+    assert "inH2OinH₂O" not in html
+    assert "inH₂OinH₂O" not in html
+
+
+def test_geo_detail_deduplicates_rows_without_merging_different_meanings(
+    sunon_sparse_payload: ProductPayload,
+) -> None:
+    payload = sunon_sparse_payload.model_copy(
+        update={
+            "attributes": {
+                " MODEL ": "OTHER-MODEL",
+                " 型号 ": "OTHER-MODEL-2",
+                "产品编号": "A2175-HBL",
+                " BRAND ": "OTHER-BRAND",
+                " 品牌 ": "OTHER-BRAND-2",
+                "制造商": " SUNON ",
+                "额定电压": "220 VAC",
+                " 额定电压 ": "220 VAC",
+                "颜色": "黑色",
+                " 颜色 ": "白色",
+                "材料": "PP",
+                "叶片材料": "PP",
+            },
+            "specification": {
+                "规格型号": "A2175-HBL",
+                "额定电压_v": "220 VAC",
+            },
+        }
+    )
+
+    soup = BeautifulSoup(_render(payload), "html.parser")
+    rows = [
+        tuple(cell.get_text(strip=True) for cell in row.select("td"))
+        for row in soup.select('[data-geo-section="core-parameters"] tr')
+    ]
+
+    assert rows == [
+        ("品牌", "SUNON"),
+        ("完整型号", "A2175-HBL"),
+        ("额定电压", "220 VAC"),
+        ("颜色", "黑色"),
+        ("颜色", "白色"),
+        ("材料", "PP"),
+        ("叶片材料", "PP"),
+    ]
+
+
+def test_geo_detail_escapes_html_and_event_attributes(
+    sunon_sparse_payload: ProductPayload,
+) -> None:
+    model = 'A2175-HBL"><img src=x onerror=alert(1)>'
+    payload = sunon_sparse_payload.model_copy(
+        update={
+            "model": model,
+            "brand": "SUNON<script>alert(1)</script>",
+            "attributes": {'参数"><script>alert(2)</script>': "<img src=x onerror=alert(3)>"},
+            "specification": {"规格型号": model},
+        }
+    )
+
+    html = _render(payload, image_roles=['正面" onerror="alert(4)', "背面", "电机", "铭牌"])
+    soup = BeautifulSoup(html, "html.parser")
+
+    assert not soup.select("script")
+    assert not soup.select("[onerror]")
+    assert "&lt;script&gt;" in html
+    assert "&lt;img src=x onerror=alert(3)&gt;" in html
+
+
 def test_geo_detail_renders_only_brand_and_model_when_only_model_is_specified(
     sunon_sparse_payload: ProductPayload,
 ) -> None:
@@ -154,6 +245,11 @@ def test_geo_detail_renders_only_brand_and_model_when_only_model_is_specified(
             "https://example.com/drawing.jpg",
             [f"https://example.com/{index}.jpg" for index in range(4)],
             ["a", "b", "c"],
+        ),
+        (
+            "https://example.com/drawing.jpg",
+            [f"https://example.com/{index}.jpg" for index in range(4)],
+            ["a", " ", "c", "d"],
         ),
     ],
 )
