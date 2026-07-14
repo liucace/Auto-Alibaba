@@ -14,7 +14,7 @@ class FakeRuntime:
 @pytest.mark.asyncio
 async def test_disconnect_stops_playwright_without_closing_chrome() -> None:
     runtime = FakeRuntime()
-    port = Playwright1688Port(object(), runtime=runtime)  # type: ignore[arg-type]
+    port = Playwright1688Port(object(), brand="SUNON", runtime=runtime)  # type: ignore[arg-type]
 
     await port.disconnect()
 

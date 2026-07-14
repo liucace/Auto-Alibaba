@@ -1,5 +1,6 @@
 import inspect
 
+from app.cli import run_product
 from app.publisher.playwright_port import (
     DETAIL_SYNC_SCRIPT,
     SAVE_DRAFT_BUTTON,
@@ -28,6 +29,23 @@ def test_port_exposes_no_save_or_publish_action() -> None:
     assert "save" not in callable_names
     assert not any("publish" in name.lower() for name in callable_names)
     assert SAVE_DRAFT_BUTTON == "#saveDraftButton"
+
+
+def test_port_uses_evidenced_brand_instead_of_ebm_album_defaults() -> None:
+    constructor = inspect.signature(Playwright1688Port)
+    connect = inspect.signature(Playwright1688Port.connect)
+    source = inspect.getsource(Playwright1688Port)
+
+    assert "brand" in constructor.parameters
+    assert "brand" in connect.parameters
+    assert "ebm(L)" not in source
+    assert "ebm(LCC)" not in source
+
+
+def test_run_product_passes_evidenced_brand_to_port() -> None:
+    source = inspect.getsource(run_product)
+
+    assert "brand=product.payload.brand" in source
 
 
 def test_main_image_urls_are_unique_and_strip_thumbnails() -> None:
@@ -99,7 +117,8 @@ def test_detail_image_upload_uses_tinymce_picker_not_main_picture() -> None:
 
     assert 'a[role="button"][title="插入图片"]' in source
     assert 'button[title="插入图片"]' not in source
-    assert "_wait_for_detail_upload" in source
+    assert "_upload_picker_files" in source
+    assert "ready=detail_upload_is_ready" in source
     assert "要插入的图片(1/1)" not in source
     assert "_read_detail_image_urls" in source
     assert "#guid-primaryPicture" not in source

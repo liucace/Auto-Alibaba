@@ -3,7 +3,7 @@ import re
 from collections.abc import Awaitable, Callable
 from functools import partial
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, cast
 
 from playwright.async_api import (
     Browser,
@@ -18,6 +18,7 @@ from playwright.async_api import (
 from app.domain.errors import ManualReviewRequired
 from app.domain.models import ProductPayload
 from app.ingest.model_number import normalize_model
+from app.publisher.album_policy import choose_brand_album, next_brand_album
 from app.publisher.form_plan import FormField, build_form_plan
 from app.publisher.quality import parse_quality_check
 
@@ -29,6 +30,7 @@ FIELD_RETAIN_TIMEOUT_SECONDS = 0.5
 FIELD_RETAIN_POLL_SECONDS = 0.05
 ATTRIBUTE_FIELD_COUNT = 9
 SPEC_FIELD_COUNT = 7
+ALBUM_CAPACITY_MESSAGES = ("当前相册已满", "相册容量不足", "图片空间不足", "相册已满")
 SPEC_DISPLAY_UNITS: dict[str, tuple[str, ...]] = {
     "电机功率_w": ("W",),
     "风叶直径_m": ("m",),
@@ -100,6 +102,39 @@ def value_matches(current: str, desired: str, *, contains: bool = False) -> bool
 
 def media_is_current(current: str | None, expected: str) -> bool:
     return bool(expected) and current == expected
+
+
+def upload_capacity_exhausted(body_text: str) -> bool:
+    return any(message in body_text for message in ALBUM_CAPACITY_MESSAGES)
+
+
+UploadState = Literal["ready", "full"]
+
+
+async def _upload_with_brand_album(
+    *,
+    brand: str,
+    read_names: Callable[[], Awaitable[list[str]]],
+    select_name: Callable[[str], Awaitable[None]],
+    create_name: Callable[[str], Awaitable[None]],
+    upload_once: Callable[[], Awaitable[UploadState]],
+) -> None:
+    names = [name.strip() for name in await read_names()]
+    choice = choose_brand_album(brand, names)
+    if choice.create:
+        await create_name(choice.name)
+        names.append(choice.name)
+    await select_name(choice.name)
+    if await upload_once() == "ready":
+        return
+
+    rollover_name = next_brand_album(brand, names)
+    await create_name(rollover_name)
+    await select_name(rollover_name)
+    if await upload_once() != "ready":
+        raise ManualReviewRequired(
+            f"new brand album is unavailable or full after one retry: {rollover_name}"
+        )
 
 
 async def _fill_and_verify(field: Any, value: str, *, label: str, retries: int = 1) -> None:
@@ -250,24 +285,6 @@ async def _wait_for_picker_frame(
     raise ManualReviewRequired("1688 image picker frame did not open")
 
 
-async def _wait_for_album_name(
-    read_options: Callable[[], Awaitable[list[str]]],
-    albums: tuple[str, ...],
-    *,
-    timeout_seconds: float = 15,
-    poll_seconds: float = 0.1,
-) -> str:
-    loop = asyncio.get_running_loop()
-    deadline = loop.time() + timeout_seconds
-    while loop.time() < deadline:
-        available = [text.strip() for text in await read_options()]
-        chosen = next((album for album in albums if album in available), None)
-        if chosen is not None:
-            return chosen
-        await asyncio.sleep(poll_seconds)
-    raise ManualReviewRequired(f"no configured image album is available: {albums}")
-
-
 async def _activate_computer_upload(
     picker: Any, *, timeout_seconds: float = 15, poll_seconds: float = 0.1
 ) -> Any:
@@ -319,17 +336,104 @@ async def _wait_for_new_detail_image_url(
     raise ManualReviewRequired("one hosted detail image URL did not reach TinyMCE")
 
 
-async def _wait_for_detail_upload(
-    picker: Any, *, timeout_seconds: float = 60, poll_seconds: float = 0.1
-) -> None:
+async def _wait_for_upload_state(
+    picker: Any,
+    *,
+    ready: Callable[[str], bool],
+    timeout_seconds: float = 60,
+    poll_seconds: float = 0.1,
+) -> UploadState:
     loop = asyncio.get_running_loop()
     deadline = loop.time() + timeout_seconds
     body = picker.locator("body")
     while loop.time() < deadline:
-        if detail_upload_is_ready(await body.inner_text()):
-            return
+        body_text = await body.inner_text()
+        if upload_capacity_exhausted(body_text):
+            return "full"
+        if ready(body_text):
+            return "ready"
         await asyncio.sleep(poll_seconds)
-    raise ManualReviewRequired("one detail image did not finish uploading")
+    raise ManualReviewRequired("image upload did not finish")
+
+
+async def _wait_for_detail_upload(
+    picker: Any, *, timeout_seconds: float = 60, poll_seconds: float = 0.1
+) -> UploadState:
+    return await _wait_for_upload_state(
+        picker,
+        ready=detail_upload_is_ready,
+        timeout_seconds=timeout_seconds,
+        poll_seconds=poll_seconds,
+    )
+
+
+def _main_upload_is_ready(body_text: str) -> bool:
+    return (
+        "要插入的图片(4/4)" in body_text
+        and "正在上传！" not in body_text
+        and "准备上传！" not in body_text
+    )
+
+
+async def _create_picker_album(picker: Any, album_select: Any, name: str) -> None:
+    trigger = picker.get_by_text("新建相册", exact=True)
+    try:
+        await trigger.last.click(timeout=5_000)
+    except PlaywrightTimeoutError as error:
+        raise ManualReviewRequired("image picker does not expose new album creation") from error
+
+    dialog = picker.locator('[role="dialog"]:visible, .ui-dialog:visible, .next-dialog:visible').last
+    field = dialog.locator('input[placeholder*="相册"]:visible, input[type="text"]:visible').last
+    confirm = dialog.get_by_text("确定", exact=True).last
+    try:
+        await field.fill(name, timeout=5_000)
+        await confirm.click(timeout=5_000)
+    except PlaywrightTimeoutError as error:
+        raise ManualReviewRequired(f"could not create brand album: {name}") from error
+
+    async def created() -> bool:
+        options = [
+            text.strip() for text in await album_select.locator("option").all_text_contents()
+        ]
+        return name in options
+
+    if not await _wait_for_condition(created, timeout_seconds=10, poll_seconds=0.1):
+        raise ManualReviewRequired(f"new brand album did not appear in picker: {name}")
+
+
+async def _upload_picker_files(
+    *,
+    picker: Any,
+    file_input: Any,
+    files: str | list[str],
+    brand: str,
+    ready: Callable[[str], bool],
+) -> None:
+    album_select = picker.locator("select:visible").last
+
+    async def read_names() -> list[str]:
+        return cast(list[str], await album_select.locator("option").all_text_contents())
+
+    async def select_name(name: str) -> None:
+        try:
+            await album_select.select_option(label=name, timeout=5_000)
+        except PlaywrightTimeoutError as error:
+            raise ManualReviewRequired(f"brand album could not be selected: {name}") from error
+
+    async def create_name(name: str) -> None:
+        await _create_picker_album(picker, album_select, name)
+
+    async def upload_once() -> UploadState:
+        await file_input.set_input_files(files)
+        return await _wait_for_upload_state(picker, ready=ready)
+
+    await _upload_with_brand_album(
+        brand=brand,
+        read_names=read_names,
+        select_name=select_name,
+        create_name=create_name,
+        upload_once=upload_once,
+    )
 
 
 class Playwright1688Port:
@@ -337,13 +441,15 @@ class Playwright1688Port:
         self,
         page: Page,
         *,
-        albums: tuple[str, ...] = ("ebm(L)", "ebm(LCC)"),
+        brand: str,
         media_fingerprint: str | None = None,
         runtime: Playwright | None = None,
         browser: Browser | None = None,
     ) -> None:
         self.page = page
-        self.albums = albums
+        self.brand = brand.strip()
+        if not self.brand:
+            raise ManualReviewRequired("product brand is required for image album selection")
         self.media_fingerprint = media_fingerprint
         self._runtime = runtime
         self._browser = browser
@@ -354,7 +460,7 @@ class Playwright1688Port:
         *,
         cdp_url: str,
         category_url: str,
-        albums: tuple[str, ...] = ("ebm(L)", "ebm(LCC)"),
+        brand: str,
         session_tag: str | None = None,
         media_fingerprint: str | None = None,
     ) -> "Playwright1688Port":
@@ -389,7 +495,7 @@ class Playwright1688Port:
             raise ManualReviewRequired(f"unexpected page after navigation: {page.url}")
         return cls(
             page,
-            albums=albums,
+            brand=brand,
             media_fingerprint=media_fingerprint,
             runtime=runtime,
             browser=browser,
@@ -430,22 +536,18 @@ class Playwright1688Port:
         await self.page.get_by_text("添加图片", exact=True).first.click(timeout=5_000)
         picker = await _wait_for_picker_frame(self.page)
         await _activate_computer_upload(picker)
-        album_select = picker.locator("select:visible").last
-        chosen = await _wait_for_album_name(
-            lambda: album_select.locator("option").all_text_contents(), self.albums
-        )
-        await album_select.select_option(label=chosen)
         watermark = picker.locator('input[type="checkbox"]')
         if await watermark.count() and await watermark.first.is_checked():
             await watermark.first.uncheck()
-        await picker.locator('input[type="file"][multiple]').set_input_files(
-            [str(path) for path in paths]
-        )
-        await picker.wait_for_function(
-            """() => document.body.innerText.includes('要插入的图片(4/4)')
-              && !document.body.innerText.includes('正在上传！')
-              && !document.body.innerText.includes('准备上传！')""",
-            timeout=60_000,
+        file_input = picker.locator('input[type="file"][multiple]').last
+        if not await file_input.count():
+            raise ManualReviewRequired("main image multiple-file input is unavailable")
+        await _upload_picker_files(
+            picker=picker,
+            file_input=file_input,
+            files=[str(path) for path in paths],
+            brand=self.brand,
+            ready=_main_upload_is_ready,
         )
         insert = picker.locator("em", has_text="插入图片")
         await insert.last.click(timeout=5_000)
@@ -472,16 +574,16 @@ class Playwright1688Port:
         )
         picker = await _wait_for_picker_frame(self.page)
         file_input = await _activate_computer_upload(picker)
-        album_select = picker.locator("select:visible").last
-        chosen = await _wait_for_album_name(
-            lambda: album_select.locator("option").all_text_contents(), self.albums
-        )
-        await album_select.select_option(label=chosen)
         watermark = picker.locator('input[type="checkbox"]')
         if await watermark.count() and await watermark.first.is_checked():
             await watermark.first.uncheck()
-        await file_input.set_input_files(str(path))
-        await _wait_for_detail_upload(picker)
+        await _upload_picker_files(
+            picker=picker,
+            file_input=file_input,
+            files=str(path),
+            brand=self.brand,
+            ready=detail_upload_is_ready,
+        )
         await picker.locator("em", has_text="插入图片").last.evaluate("element => element.click()")
         return await _wait_for_new_detail_image_url(self._read_detail_image_urls, before)
 

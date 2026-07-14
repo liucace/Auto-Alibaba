@@ -155,9 +155,7 @@ def build_task_state(*, result: UploadResult, cdp_url: str, page_url: str) -> di
     }
 
 
-async def run_product(
-    *, root: Path, model: str, cdp_url: str, albums: tuple[str, ...]
-) -> CommandResult:
+async def run_product(*, root: Path, model: str, cdp_url: str) -> CommandResult:
     normalized = normalize_model(model)
     inventory = load_inventory(root / "price_inventory.xlsx", normalized)
     product = load_prepared_product(root, normalized, price=inventory.price, stock=inventory.stock)
@@ -166,7 +164,7 @@ async def run_product(
     port = await Playwright1688Port.connect(
         cdp_url=cdp_url,
         category_url=plan.category_url,
-        albums=albums,
+        brand=product.payload.brand,
         session_tag=build_session_tag(normalized),
         media_fingerprint=fingerprint,
     )
@@ -204,13 +202,9 @@ def run(
     model: Annotated[str, typer.Argument(help="完整商品型号")],
     root: Annotated[Path, typer.Option("--root", help="商品资料工作区")] = Path("."),
     cdp_url: Annotated[str, typer.Option("--cdp-url")] = "http://127.0.0.1:9223",
-    album: Annotated[list[str] | None, typer.Option("--album")] = None,
 ) -> None:
     """Fill one product and stop before saving the draft."""
-    albums = tuple(album or ["ebm(L)", "ebm(LCC)"])
-    result = asyncio.run(
-        run_product(root=root.resolve(), model=model, cdp_url=cdp_url, albums=albums)
-    )
+    result = asyncio.run(run_product(root=root.resolve(), model=model, cdp_url=cdp_url))
     if result.ready:
         typer.echo(
             f"{result.model}: READY_TO_SAVE; errors=0; stopped before save; "

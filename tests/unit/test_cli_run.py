@@ -34,11 +34,10 @@ def test_task_state_records_evidence_driven_detail_metadata(tmp_path: Path) -> N
 
 
 def test_run_command_is_dry_run_and_reports_ready(monkeypatch, tmp_path: Path) -> None:
-    async def fake_run(*, root: Path, model: str, cdp_url: str, albums: tuple[str, ...]):
+    async def fake_run(*, root: Path, model: str, cdp_url: str):
         assert root == tmp_path
         assert model == "W3G630-NU33-03"
         assert cdp_url == "http://127.0.0.1:9223"
-        assert albums[0] == "ebm(L)"
         return cli_module.CommandResult(model=model, errors=0, advice=("视频",), ready=True)
 
     monkeypatch.setattr(cli_module, "run_product", fake_run)
@@ -54,7 +53,7 @@ def test_run_command_is_dry_run_and_reports_ready(monkeypatch, tmp_path: Path) -
 
 
 def test_run_command_returns_nonzero_for_blocking_errors(monkeypatch, tmp_path: Path) -> None:
-    async def fake_run(*, root: Path, model: str, cdp_url: str, albums: tuple[str, ...]):
+    async def fake_run(*, root: Path, model: str, cdp_url: str):
         return cli_module.CommandResult(model=model, errors=2, advice=(), ready=False)
 
     monkeypatch.setattr(cli_module, "run_product", fake_run)
