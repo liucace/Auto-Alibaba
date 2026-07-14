@@ -6,6 +6,7 @@ from app.publisher.playwright_port import (
     SAVE_DRAFT_BUTTON,
     Playwright1688Port,
     _activate_computer_upload,
+    _create_picker_album,
     _fill_attribute_fields,
     build_session_tag,
     normalize_hosted_image_urls,
@@ -46,6 +47,17 @@ def test_run_product_passes_evidenced_brand_to_port() -> None:
     source = inspect.getsource(run_product)
 
     assert "brand=product.payload.brand" in source
+
+
+def test_album_creation_uses_observed_picker_controls() -> None:
+    source = inspect.getsource(_create_picker_album)
+
+    assert 'locator("a.album-create")' in source
+    assert 'locator(".create:visible")' in source
+    assert 'locator("input.create-field")' in source
+    assert 'locator("#album-manager-pri")' in source
+    assert 'locator("a.button.insert")' in source
+    assert "新建相册" not in source
 
 
 def test_main_image_urls_are_unique_and_strip_thumbnails() -> None:

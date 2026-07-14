@@ -376,17 +376,20 @@ def _main_upload_is_ready(body_text: str) -> bool:
 
 
 async def _create_picker_album(picker: Any, album_select: Any, name: str) -> None:
-    trigger = picker.get_by_text("新建相册", exact=True)
-    try:
-        await trigger.last.click(timeout=5_000)
-    except PlaywrightTimeoutError as error:
-        raise ManualReviewRequired("image picker does not expose new album creation") from error
-
-    dialog = picker.locator('[role="dialog"]:visible, .ui-dialog:visible, .next-dialog:visible').last
-    field = dialog.locator('input[placeholder*="相册"]:visible, input[type="text"]:visible').last
-    confirm = dialog.get_by_text("确定", exact=True).last
+    trigger = picker.locator("a.album-create")
+    dialog = picker.locator(".create:visible").last
+    if not await dialog.count():
+        try:
+            await trigger.last.click(timeout=5_000)
+        except PlaywrightTimeoutError as error:
+            raise ManualReviewRequired("image picker does not expose new album creation") from error
+    field = dialog.locator("input.create-field").last
+    private = dialog.locator("#album-manager-pri")
+    confirm = dialog.locator("a.button.insert").last
     try:
         await field.fill(name, timeout=5_000)
+        if await private.count() and not await private.is_checked():
+            await private.check(timeout=5_000)
         await confirm.click(timeout=5_000)
     except PlaywrightTimeoutError as error:
         raise ManualReviewRequired(f"could not create brand album: {name}") from error
