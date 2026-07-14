@@ -8,6 +8,8 @@
 
 **Tech Stack:** Python 3.12+, Pydantic, PyMuPDF, Playwright async API, Typer, pytest, Ruff, mypy.
 
+**Path Variables:** `<PROJECT_ROOT>` is the checked-out Auto-Alibaba repository. `<CODEX_HOME>` is the current operator's `.codex` directory; PowerShell commands resolve it from `$env:USERPROFILE`.
+
 ---
 
 ### Task 1: Make brand and composite model evidence explicit
@@ -585,8 +587,8 @@ git commit -m "feat: roll over full brand albums"
 ### Task 6: Align the upload Skill and prepare the current SUNON product
 
 **Files:**
-- Modify: `C:/Users/小城/.codex/skills/upload-1688-products/SKILL.md`
-- Create: `D:/Auto-Alibaba/automation/DP201AT-2122HBL.GN/preparation_evidence.json`
+- Modify: `<CODEX_HOME>/skills/upload-1688-products/SKILL.md`
+- Create: `<PROJECT_ROOT>/automation/DP201AT-2122HBL.GN/preparation_evidence.json`
 
 - [ ] **Step 1: Update the Skill input contract**
 
@@ -655,7 +657,7 @@ Run:
 ```powershell
 $env:PYTHONUTF8='1'
 $env:PYTHONIOENCODING='utf-8'
-python -m app.cli prepare 'DP201AT-2122HBL.GN' --root 'D:\Auto-Alibaba'
+python -m app.cli prepare 'DP201AT-2122HBL.GN' --root '<PROJECT_ROOT>'
 ```
 
 Expected: JSON status `PREPARED`, four square main images, one drawing, and a payload whose brand is `SUNON`. Inspect `1688_payload.json` and rendered detail locally to confirm no ebm-papst-specific text.
@@ -683,9 +685,10 @@ Expected: all tests pass, Ruff reports no errors, and mypy reports success.
 Run in the order required by the upload Skill:
 
 ```powershell
-python -m app.cli init-product 'DP201AT-2122HBL.GN' --root 'D:\Auto-Alibaba'
-powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\Users\小城\.codex\skills\upload-1688-products\scripts\ensure_chrome.ps1' -Root 'D:\Auto-Alibaba'
-python -m app.cli doctor --root 'D:\Auto-Alibaba'
+$skill = Join-Path $env:USERPROFILE '.codex\skills\upload-1688-products'
+python -m app.cli init-product 'DP201AT-2122HBL.GN' --root '<PROJECT_ROOT>'
+powershell -NoProfile -ExecutionPolicy Bypass -File "$skill\scripts\ensure_chrome.ps1" -Root '<PROJECT_ROOT>'
+python -m app.cli doctor --root '<PROJECT_ROOT>'
 ```
 
 Expected: product inputs ready, dedicated Chrome CDP 9223 ready, and all doctor checks pass.
@@ -695,7 +698,8 @@ Expected: product inputs ready, dedicated Chrome CDP 9223 ready, and all doctor 
 Run:
 
 ```powershell
-python 'C:\Users\小城\.codex\skills\upload-1688-products\scripts\run_upload.py' --root 'D:\Auto-Alibaba' --model 'DP201AT-2122HBL.GN' --cdp-url 'http://127.0.0.1:9223'
+$skill = Join-Path $env:USERPROFILE '.codex\skills\upload-1688-products'
+python "$skill\scripts\run_upload.py" --root '<PROJECT_ROOT>' --model 'DP201AT-2122HBL.GN' --cdp-url 'http://127.0.0.1:9223'
 ```
 
 Expected final JSON: `status` is `READY_TO_SAVE`, `quality_errors` is `0`, detail image count is `5`, and the message confirms the run stopped before save. If the final JSON is `NEEDS_LOGIN`, `BLOCKED`, or `FAILED`, report its exact message and checks without claiming completion.
