@@ -260,10 +260,14 @@ def run_prepare(root: Path, model: str, *, timeout_seconds: int = 300) -> dict[s
 
 def prepared_artifacts_complete(root: Path, folder_key: str) -> bool:
     artifacts = root / "automation" / folder_key
-    return all(
-        (artifacts / name).is_file()
+    evidence = artifacts / "preparation_evidence.json"
+    outputs = tuple(
+        artifacts / name
         for name in ("1688_payload.json", "image_analysis.json", "detail_assets.json")
     )
+    if not evidence.is_file() or not all(path.is_file() for path in outputs):
+        return False
+    return all(path.stat().st_mtime_ns >= evidence.stat().st_mtime_ns for path in outputs)
 
 
 def _product_inputs_from_project(

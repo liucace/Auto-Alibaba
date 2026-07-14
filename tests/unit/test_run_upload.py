@@ -1,4 +1,5 @@
 import importlib.util
+import os
 import sys
 from pathlib import Path
 
@@ -25,6 +26,22 @@ def _load_run_upload():
         return module
     finally:
         sys.path.remove(str(scripts))
+
+
+def test_prepared_artifacts_are_stale_when_evidence_is_newer(tmp_path: Path) -> None:
+    module = _load_run_upload()
+    artifacts = tmp_path / "automation" / "DP201AT-2122HBL.GN"
+    artifacts.mkdir(parents=True)
+    evidence = artifacts / "preparation_evidence.json"
+    evidence.write_text("{}", encoding="utf-8")
+    for name in ("1688_payload.json", "image_analysis.json", "detail_assets.json"):
+        path = artifacts / name
+        path.write_text("{}", encoding="utf-8")
+        path.touch()
+    future = evidence.stat().st_mtime + 10
+    os.utime(evidence, (future, future))
+
+    assert module.prepared_artifacts_complete(tmp_path, "DP201AT-2122HBL.GN") is False
 
 
 def test_execute_stops_on_input_guide_before_lock_or_prepare(

@@ -51,6 +51,28 @@ async def test_album_workflow_creates_first_brand_album() -> None:
 
 
 @pytest.mark.asyncio
+async def test_other_brand_high_number_never_affects_first_sunon_album() -> None:
+    log: list[str] = []
+
+    async def read_names() -> list[str]:
+        return ["Delta(99)", "SUNON (03)", "SUNON风扇(03)"]
+
+    async def upload_once() -> str:
+        log.append("upload:ready")
+        return "ready"
+
+    await _upload_with_brand_album(
+        brand="sunon",
+        read_names=read_names,
+        select_name=_async_action(log, "select"),
+        create_name=_async_action(log, "create"),
+        upload_once=upload_once,
+    )
+
+    assert log == ["create:sunon(01)", "select:sunon(01)", "upload:ready"]
+
+
+@pytest.mark.asyncio
 async def test_album_workflow_rolls_over_full_album_once() -> None:
     log: list[str] = []
 

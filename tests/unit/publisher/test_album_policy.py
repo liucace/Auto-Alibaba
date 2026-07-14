@@ -35,7 +35,14 @@ def test_next_album_increments_highest_brand_number_only() -> None:
 def test_matching_is_case_insensitive_but_does_not_accept_nearby_names() -> None:
     assert matching_brand_albums(
         "sunon",
-        ["SUNON(02)", "Sunon(10)", "SUNON (11)", "SUNON(1)", "SUNON(01)-old"],
+        [
+            "SUNON(02)",
+            "Sunon(10)",
+            "SUNON (11)",
+            "SUNON风扇(03)",
+            "SUNON(1)",
+            "SUNON(01)-old",
+        ],
     ) == (
         BrandAlbum(name="SUNON(02)", number=2),
         BrandAlbum(name="Sunon(10)", number=10),

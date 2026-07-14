@@ -68,3 +68,20 @@ def test_skill_requires_product_input_guide_before_upload() -> None:
     assert "PDF" in skill
     assert "四张" in skill
     assert "不得在同一轮" in skill
+
+
+def test_skill_documents_approved_geo_single_sku_and_fixed_tail_contract() -> None:
+    skill = SKILL.read_text(encoding="utf-8")
+
+    assert "外部输入仅限当前型号 PDF、至少四张真实产品照片，以及 Excel 中的价格和库存" in skill
+    assert "标题不超过 60 个字符" in skill
+    assert "品牌、完整型号和产品名称" in skill
+    assert "50/60Hz 斜杠参数" in skill
+    assert "不得拆成多个 SKU" in skill
+    assert "固定六张公司介绍图片" in skill
+    assert "每个品牌" in skill
+    assert "动态图片数量" in skill
+    assert "当前品牌编号最大的相册" in skill
+    assert "只允许创建下一编号并重试当前批次一次" in skill
+    assert "永远不要点击“保存草稿”、发布或等价按钮" in skill
+    assert "详情图为5张" not in skill
