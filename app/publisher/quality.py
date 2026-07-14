@@ -36,6 +36,7 @@ def parse_quality_check(
     ui_text: str,
     response: dict[str, Any],
     form_values: dict[str, Any],
+    expected_image_sources: tuple[str, ...],
 ) -> dict[str, object]:
     match = re.search(r"错误\((\d+)\)", ui_text)
     if match is None:
@@ -43,9 +44,11 @@ def parse_quality_check(
     content = form_values.get("description", {}).get("detailList", [{}])[0].get("content")
     if not isinstance(content, str) or content == "null":
         raise ManualReviewRequired("description is not synchronized to the form model")
-    sources = re.findall(r"<img\b[^>]*\bsrc=[\"']([^\"']+)", content, flags=re.I)
-    if len(sources) < 5 or len(set(sources)) != len(sources):
-        raise ManualReviewRequired("description must contain at least five distinct images")
+    sources = tuple(re.findall(r"<img\b[^>]*\bsrc=[\"']([^\"']+)", content, flags=re.I))
+    if len(sources) != len(set(sources)):
+        raise ManualReviewRequired("description image sources must be unique")
+    if sources != expected_image_sources:
+        raise ManualReviewRequired("description image manifest does not match rendered detail")
     advice: list[str] = []
     infos = response.get("data", {}).get("data", {}).get("qualityInfos", [])
     for info in infos:

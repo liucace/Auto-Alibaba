@@ -172,3 +172,11 @@ def test_detail_injection_requires_explicit_expected_image_count() -> None:
 
     assert "expected_image_count" in signature.parameters
     assert 'result.get("imageCount") != expected_image_count' in source
+
+
+def test_quality_check_requires_expected_ordered_image_sources() -> None:
+    signature = inspect.signature(Playwright1688Port.quality_check)
+    source = inspect.getsource(Playwright1688Port.quality_check)
+
+    assert "expected_image_sources" in signature.parameters
+    assert "expected_image_sources=expected_image_sources" in source

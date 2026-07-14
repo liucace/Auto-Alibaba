@@ -4,21 +4,40 @@ from app.domain.errors import ManualReviewRequired
 from app.publisher.quality import parse_quality_check
 
 
-def test_quality_parser_requires_zero_errors_and_five_detail_images() -> None:
-    html = "".join(f'<img src="https://example.com/{i}.jpg">' for i in range(5))
+def _html(sources: tuple[str, ...]) -> str:
+    return "".join(f'<img src="{source}">' for source in sources)
+
+
+def test_quality_parser_requires_exact_ordered_image_manifest() -> None:
+    expected = tuple(f"https://example.com/{index}.jpg" for index in range(11))
+
     result = parse_quality_check(
         ui_text="错误(0)\n待优化(2)",
         response={
             "data": {"data": {"qualityInfos": [{"adviceMessages": [{"title": "买家保障"}]}]}}
         },
-        form_values={"description": {"detailList": [{"content": html}]}},
+        form_values={"description": {"detailList": [{"content": _html(expected)}]}},
+        expected_image_sources=expected,
     )
 
     assert result == {"errors": 0, "advice": ["买家保障"], "error_details": []}
 
 
+def test_quality_parser_rejects_reordered_company_tail() -> None:
+    expected = tuple(f"https://example.com/{index}.jpg" for index in range(11))
+    actual = (*expected[:-2], expected[-1], expected[-2])
+
+    with pytest.raises(ManualReviewRequired, match="manifest"):
+        parse_quality_check(
+            ui_text="错误(0)",
+            response={"data": {"data": {"qualityInfos": []}}},
+            form_values={"description": {"detailList": [{"content": _html(actual)}]}},
+            expected_image_sources=expected,
+        )
+
+
 def test_quality_parser_extracts_blocking_error_details_separately_from_advice() -> None:
-    html = "".join(f'<img src="https://example.com/{i}.jpg">' for i in range(5))
+    expected = tuple(f"https://example.com/{index}.jpg" for index in range(11))
     result = parse_quality_check(
         ui_text="\n".join(
             [
@@ -37,7 +56,8 @@ def test_quality_parser_extracts_blocking_error_details_separately_from_advice()
         response={
             "data": {"data": {"qualityInfos": [{"adviceMessages": [{"title": "买家保障"}]}]}}
         },
-        form_values={"description": {"detailList": [{"content": html}]}},
+        form_values={"description": {"detailList": [{"content": _html(expected)}]}},
+        expected_image_sources=expected,
     )
 
     assert result["errors"] == 1
@@ -47,30 +67,26 @@ def test_quality_parser_extracts_blocking_error_details_separately_from_advice()
     ]
 
 
-@pytest.mark.parametrize(
-    "sources",
-    [
-        [f"https://example.com/{index}.jpg" for index in range(4)],
-        ["https://example.com/same.jpg"] * 5,
-    ],
-)
-def test_quality_parser_rejects_fewer_than_five_or_duplicate_images(
-    sources: list[str],
-) -> None:
-    html = "".join(f'<img src="{source}">' for source in sources)
+def test_quality_parser_rejects_duplicate_images_even_when_count_matches() -> None:
+    expected = tuple(f"https://example.com/{index}.jpg" for index in range(11))
+    actual = (*expected[:-1], expected[0])
 
-    with pytest.raises(ManualReviewRequired, match="five distinct"):
+    with pytest.raises(ManualReviewRequired, match="unique"):
         parse_quality_check(
             ui_text="错误(0)\n待优化(0)",
             response={"data": {"data": {"qualityInfos": []}}},
-            form_values={"description": {"detailList": [{"content": html}]}},
+            form_values={"description": {"detailList": [{"content": _html(actual)}]}},
+            expected_image_sources=expected,
         )
 
 
 def test_quality_parser_rejects_null_detail_model() -> None:
-    with pytest.raises(ManualReviewRequired):
+    expected = tuple(f"https://example.com/{index}.jpg" for index in range(11))
+
+    with pytest.raises(ManualReviewRequired, match="not synchronized"):
         parse_quality_check(
             ui_text="错误(0)\n待优化(0)",
             response={"data": {"data": {"qualityInfos": []}}},
             form_values={"description": {"detailList": [{"content": "null"}]}},
+            expected_image_sources=expected,
         )

@@ -58,10 +58,20 @@ def is_current_state(state: object) -> bool:
     except ValueError:
         return False
     expected_errors = errors == 0 if status == "READY_TO_SAVE" else errors > 0
+    image_count = detail.get("image_count")
+    image_sources = detail.get("image_sources")
+    valid_images = (
+        isinstance(image_count, int)
+        and isinstance(image_sources, list)
+        and all(isinstance(item, str) and bool(item.strip()) for item in image_sources)
+        and image_count == len(image_sources)
+        and image_count == len(set(image_sources))
+        and image_count >= 5
+    )
     return (
         expected_errors
-        and detail.get("template_version") == "reference-faithful-v1"
-        and detail.get("image_count") == 5
+        and detail.get("template_version") == "geo-evidence-v3"
+        and valid_images
         and browser.get("cdp_url") == CDP_URL
         and _is_offer_url(browser.get("page_url"))
     )

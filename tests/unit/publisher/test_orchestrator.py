@@ -31,8 +31,10 @@ class RecordingPort:
     async def inject_detail(self, html: str, *, expected_image_count: int) -> None:
         self.calls.append(("detail", (html, expected_image_count)))
 
-    async def quality_check(self) -> dict[str, object]:
-        self.calls.append(("quality", None))
+    async def quality_check(
+        self, *, expected_image_sources: tuple[str, ...]
+    ) -> dict[str, object]:
+        self.calls.append(("quality", expected_image_sources))
         return {"errors": 0, "advice": ["视频"]}
 
     async def verify_save_boundary(self) -> None:
@@ -112,8 +114,8 @@ async def test_uploader_runs_fixed_order_and_checks_quality_once(product: Prepar
     assert isinstance(detail_call, tuple)
     detail, expected_count = detail_call
     assert isinstance(detail, str)
-    assert expected_count == 5
-    assert detail.count("<img ") == 5
+    assert expected_count == 11
+    assert detail.count("<img ") == 11
     assert "SUNON" in detail
     assert "220-240V" in detail
     assert (product.artifacts_directory / "detail.html").read_text(encoding="utf-8") == detail
@@ -121,7 +123,17 @@ async def test_uploader_runs_fixed_order_and_checks_quality_once(product: Prepar
         (product.artifacts_directory / "detail_assets.json").read_text(encoding="utf-8")
     )
     assert detail_assets["hosted_url"] == "https://cbu01.alicdn.com/img/ibank/drawing.jpg"
-    assert result.detail_image_count == 5
+    quality_manifest = next(value for name, value in port.calls if name == "quality")
+    assert quality_manifest == result.detail_image_sources
+    assert result.detail_image_count == 11
+    assert result.detail_image_count == len(result.detail_image_sources)
+    assert result.detail_image_sources[:5] == (
+        "https://example.com/0.jpg",
+        "https://example.com/1.jpg",
+        "https://example.com/2.jpg",
+        "https://example.com/3.jpg",
+        "https://cbu01.alicdn.com/img/ibank/drawing.jpg",
+    )
     assert result.detail_html_path == product.artifacts_directory / "detail.html"
 
 
@@ -129,8 +141,10 @@ async def test_uploader_runs_fixed_order_and_checks_quality_once(product: Prepar
 async def test_uploader_stops_when_quality_has_errors(product: PreparedProduct) -> None:
     port = RecordingPort()
 
-    async def failing_quality() -> dict[str, object]:
-        port.calls.append(("quality", None))
+    async def failing_quality(
+        *, expected_image_sources: tuple[str, ...]
+    ) -> dict[str, object]:
+        port.calls.append(("quality", expected_image_sources))
         return {"errors": 2, "advice": []}
 
     port.quality_check = failing_quality  # type: ignore[method-assign]

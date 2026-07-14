@@ -8,6 +8,7 @@ from app.publisher.orchestrator import UploadResult
 
 def test_task_state_records_evidence_driven_detail_metadata(tmp_path: Path) -> None:
     html = tmp_path / "detail.html"
+    sources = tuple(f"https://example.com/{index}.jpg" for index in range(11))
     result = UploadResult(
         model="W3G710-NU31-03",
         errors=0,
@@ -15,7 +16,8 @@ def test_task_state_records_evidence_driven_detail_metadata(tmp_path: Path) -> N
         ready_to_save=True,
         detail_drawing_url="https://cbu01.alicdn.com/img/ibank/drawing.jpg",
         detail_html_path=html,
-        detail_image_count=5,
+        detail_image_count=11,
+        detail_image_sources=sources,
     )
 
     state = cli_module.build_task_state(
@@ -26,10 +28,11 @@ def test_task_state_records_evidence_driven_detail_metadata(tmp_path: Path) -> N
 
     assert state["status"] == "READY_TO_SAVE"
     assert state["detail"] == {
-        "template_version": "evidence-driven-v2",
+        "template_version": "geo-evidence-v3",
         "local_html": str(html),
         "drawing_url": "https://cbu01.alicdn.com/img/ibank/drawing.jpg",
-        "image_count": 5,
+        "image_count": 11,
+        "image_sources": list(sources),
     }
 
 

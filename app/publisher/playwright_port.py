@@ -688,7 +688,9 @@ class Playwright1688Port:
         if not result.get("ok") or result.get("imageCount") != expected_image_count:
             raise ManualReviewRequired(f"detail form synchronization failed: {result}")
 
-    async def quality_check(self) -> dict[str, object]:
+    async def quality_check(
+        self, *, expected_image_sources: tuple[str, ...]
+    ) -> dict[str, object]:
         async with self.page.expect_response(
             lambda response: "qualityCal" in response.url and response.request.method == "POST",
             timeout=20_000,
@@ -704,6 +706,7 @@ class Playwright1688Port:
             ui_text=ui_text,
             response=response_json,
             form_values=post_data.get("formValues", {}),
+            expected_image_sources=expected_image_sources,
         )
 
     async def verify_save_boundary(self) -> None:

@@ -16,7 +16,9 @@ class UploaderPort(Protocol):
 
     async def inject_detail(self, html: str, *, expected_image_count: int) -> None: ...
 
-    async def quality_check(self) -> dict[str, object]: ...
+    async def quality_check(
+        self, *, expected_image_sources: tuple[str, ...]
+    ) -> dict[str, object]: ...
 
     async def verify_save_boundary(self) -> None: ...
 
@@ -30,6 +32,7 @@ class UploadResult:
     detail_drawing_url: str
     detail_html_path: Path
     detail_image_count: int
+    detail_image_sources: tuple[str, ...]
     error_details: tuple[dict[str, str], ...] = ()
 
 
@@ -45,7 +48,7 @@ class ProductUploader:
         )
         update_detail_hosted_url(product.artifacts_directory / "detail_assets.json", drawing_url)
         await self._port.fill_product(product.payload)
-        detail = render_geo_detail(
+        document = render_geo_detail(
             payload=product.payload,
             drawing_url=drawing_url,
             image_urls=hosted_urls,
@@ -53,10 +56,15 @@ class ProductUploader:
         )
         detail_path = product.artifacts_directory / "detail.html"
         temporary = detail_path.with_suffix(detail_path.suffix + ".tmp")
-        temporary.write_text(detail, encoding="utf-8")
+        temporary.write_text(document.html, encoding="utf-8")
         temporary.replace(detail_path)
-        await self._port.inject_detail(detail, expected_image_count=5)
-        quality = await self._port.quality_check()
+        await self._port.inject_detail(
+            document.html,
+            expected_image_count=document.image_count,
+        )
+        quality = await self._port.quality_check(
+            expected_image_sources=document.image_sources,
+        )
         raw_errors = quality.get("errors", 0)
         errors = int(raw_errors) if isinstance(raw_errors, (int, str)) else 1
         raw_advice = quality.get("advice", [])
@@ -78,6 +86,7 @@ class ProductUploader:
             ready_to_save=errors == 0,
             detail_drawing_url=drawing_url,
             detail_html_path=detail_path,
-            detail_image_count=5,
+            detail_image_count=document.image_count,
+            detail_image_sources=document.image_sources,
             error_details=error_details,
         )
