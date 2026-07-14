@@ -17,6 +17,14 @@ def _write_pdf(path: Path, model: str) -> None:
     document.save(path)
 
 
+def _write_pdf_pages(path: Path, pages: tuple[str, ...]) -> None:
+    document = fitz.open()
+    for text in pages:
+        page = document.new_page()
+        page.insert_text((72, 72), text)
+    document.save(path)
+
+
 def _write_inventory(path: Path, model: str) -> None:
     workbook = Workbook()
     sheet = workbook.active
@@ -42,6 +50,7 @@ def test_prepare_product_builds_validated_artifacts_and_square_images(tmp_path: 
         images.append({"local_file": name, "role": f"current-model-view-{index}"})
     evidence = {
         "model": model,
+        "brand": "ebm-papst",
         "pdf_file": pdf_name,
         "title": f"ebm-papst {model} 400V EC轴流工业风扇",
         "attributes": {
@@ -85,6 +94,7 @@ def test_prepare_product_builds_validated_artifacts_and_square_images(tmp_path: 
     analysis = json.loads((artifacts / "image_analysis.json").read_text(encoding="utf-8"))
     detail = json.loads((artifacts / "detail_assets.json").read_text(encoding="utf-8"))
     assert payload["model"] == model
+    assert payload["brand"] == "ebm-papst"
     assert detail["model"] == model
     assert len(analysis["images"]) == 4
     for item in analysis["images"]:
@@ -111,3 +121,33 @@ def test_pdf_exact_model_check_rejects_longer_variant(tmp_path: Path) -> None:
     _write_pdf(pdf, "W3G800-KS39-03/F010")
 
     assert not _pdf_contains_exact_model(pdf, "W3G800-KS39-03/F01")
+
+
+def test_pdf_exact_model_check_accepts_labeled_model_and_part_number_on_same_page(
+    tmp_path: Path,
+) -> None:
+    pdf = tmp_path / "fan.pdf"
+    _write_pdf_pages(pdf, ("MODEL: DP201AT   P / N: 2122HBL.GN",))
+
+    assert _pdf_contains_exact_model(pdf, "DP201AT-2122HBL.GN")
+
+
+def test_pdf_exact_model_check_rejects_unlabeled_model_parts(tmp_path: Path) -> None:
+    pdf = tmp_path / "fan.pdf"
+    _write_pdf_pages(pdf, ("DP201AT 2122HBL.GN",))
+
+    assert not _pdf_contains_exact_model(pdf, "DP201AT-2122HBL.GN")
+
+
+def test_pdf_exact_model_check_rejects_labeled_parts_on_different_pages(tmp_path: Path) -> None:
+    pdf = tmp_path / "fan.pdf"
+    _write_pdf_pages(pdf, ("MODEL: DP201AT", "P / N: 2122HBL.GN"))
+
+    assert not _pdf_contains_exact_model(pdf, "DP201AT-2122HBL.GN")
+
+
+def test_pdf_exact_model_check_rejects_longer_labeled_part_number(tmp_path: Path) -> None:
+    pdf = tmp_path / "fan.pdf"
+    _write_pdf_pages(pdf, ("MODEL: DP201AT   P / N: 2122HBL.GN0",))
+
+    assert not _pdf_contains_exact_model(pdf, "DP201AT-2122HBL.GN")

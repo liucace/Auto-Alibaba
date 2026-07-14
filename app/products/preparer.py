@@ -27,6 +27,7 @@ class PreparationEvidence(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     model: str
+    brand: str = Field(min_length=1)
     pdf_file: str
     title: str
     attributes: dict[str, str]
@@ -73,9 +74,39 @@ def _pdf_contains_exact_model(path: Path, model: str) -> bool:
         rf"(?<![A-Z0-9/_-]){re.escape(model)}(?![A-Z0-9/_-])",
         flags=re.IGNORECASE,
     )
+    labeled_parts = []
+    for index, character in enumerate(model):
+        if character != "-":
+            continue
+        left = re.escape(model[:index])
+        right = re.escape(model[index + 1 :])
+        labeled_parts.append(
+            (
+                re.compile(
+                    rf"(?<![A-Z0-9])MODEL\s*(?:[:：]\s*|\s+)"
+                    rf"(?<![A-Z0-9/_-]){left}(?![A-Z0-9/_-])",
+                    flags=re.IGNORECASE,
+                ),
+                re.compile(
+                    rf"(?<![A-Z0-9])P\s*/\s*N\s*(?:[:：]\s*|\s+)"
+                    rf"(?<![A-Z0-9/_-]){right}(?![A-Z0-9/_-])",
+                    flags=re.IGNORECASE,
+                ),
+            )
+        )
     try:
         with fitz.open(path) as document:
-            return any(token.search(page.get_text("text")) is not None for page in document)
+            for page in document:
+                text = page.get_text("text")
+                if token.search(text) is not None:
+                    return True
+                if any(
+                    model_token.search(text) is not None
+                    and part_number_token.search(text) is not None
+                    for model_token, part_number_token in labeled_parts
+                ):
+                    return True
+            return False
     except (OSError, RuntimeError, ValueError) as error:
         raise ManualReviewRequired(f"product PDF cannot be read: {path}") from error
 
@@ -127,6 +158,7 @@ def prepare_product(root: Path, model: str) -> PrepareResult:
 
     payload = ProductPayload(
         model=normalized,
+        brand=evidence.brand,
         title=evidence.title,
         category_id=1034320,
         industry_category_id=2293,

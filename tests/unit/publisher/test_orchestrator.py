@@ -65,6 +65,7 @@ def product(tmp_path: Path) -> PreparedProduct:
     return PreparedProduct(
         payload=ProductPayload(
             model="W3G630-NU33-03",
+            brand="ebm-papst",
             title="title",
             category_id=1034320,
             industry_category_id=2293,

@@ -5,6 +5,7 @@ from app.publisher.form_plan import build_form_plan
 def test_form_plan_contains_only_verified_business_values() -> None:
     payload = ProductPayload(
         model="W3G630-NU33-03",
+        brand="ebm-papst",
         title="W3G630-NU33-03 title",
         category_id=1034320,
         industry_category_id=2293,

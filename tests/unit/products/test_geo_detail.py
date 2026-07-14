@@ -10,6 +10,7 @@ from app.products.geo_detail import render_geo_detail
 def w3g710_payload() -> ProductPayload:
     return ProductPayload(
         model="W3G710-NU31-03",
+        brand="ebm-papst",
         title="ebm-papst依必安派特 W3G710-NU31-03 400V EC轴流工业风扇",
         category_id=1034320,
         industry_category_id=2293,

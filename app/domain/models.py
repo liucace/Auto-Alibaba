@@ -39,7 +39,7 @@ class ProductPayload(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     model: str
-    brand: str = "ebm-papst"
+    brand: str = Field(min_length=1)
     title: str
     category_id: int
     industry_category_id: int

@@ -23,6 +23,7 @@ def test_load_prepared_product_overrides_price_and_stock_from_excel(tmp_path: Pa
         json.dumps(
             {
                 "model": "W3G630-NU33-03",
+                "brand": "ebm-papst",
                 "title": "title",
                 "category_id": 1034320,
                 "industry_category_id": 2293,
@@ -115,6 +116,7 @@ def test_slash_model_loads_from_slash_free_folder_key(tmp_path: Path) -> None:
         json.dumps(
             {
                 "model": model,
+                "brand": "ebm-papst",
                 "title": "title",
                 "category_id": 1034320,
                 "industry_category_id": 2293,
