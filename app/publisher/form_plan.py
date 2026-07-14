@@ -6,7 +6,7 @@ from app.domain.models import ProductPayload
 def _text(value: str | int | float) -> str:
     if isinstance(value, float) and value.is_integer():
         return str(int(value))
-    return str(value)
+    return str(value).strip()
 
 
 @dataclass(frozen=True)

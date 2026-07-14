@@ -5,6 +5,7 @@ from app.publisher.playwright_port import (
     SAVE_DRAFT_BUTTON,
     Playwright1688Port,
     _activate_computer_upload,
+    _fill_attribute_fields,
     build_session_tag,
     normalize_hosted_image_urls,
     normalize_main_image_urls,
@@ -65,20 +66,19 @@ def test_freight_dropdown_clicks_visible_selection_item() -> None:
 def test_fill_product_iterates_only_sparse_form_fields() -> None:
     source = inspect.getsource(Playwright1688Port.fill_product)
 
-    assert "for entry in plan.attribute_fields" in source
-    assert "attributes.nth(entry.index)" in source
-    assert "for entry in plan.spec_fields" in source
-    assert "cells.nth(entry.index)" in source
+    assert "_fill_attribute_fields(self.page, attributes, plan.attribute_fields)" in source
+    assert "_fill_spec_fields(self.page, cells, plan.spec_fields)" in source
     assert "PP塑料" not in source
     assert "attributes.nth(0)" not in source
     assert "attributes.nth(2)" not in source
 
 
-def test_sparse_attribute_option_is_clicked_only_when_exact_and_visible() -> None:
-    source = inspect.getsource(Playwright1688Port.fill_product)
+def test_sparse_attribute_option_uses_bounded_visibility_wait() -> None:
+    source = inspect.getsource(_fill_attribute_fields)
 
     assert 'get_by_role("option", name=entry.value, exact=True)' in source
-    assert "await option.first.is_visible()" in source
+    assert 'option.first.wait_for(state="visible", timeout=option_timeout_ms)' in source
+    assert "except PlaywrightTimeoutError" in source
     assert "await option.first.click" in source
     assert 'await field.press("Tab")' in source
 

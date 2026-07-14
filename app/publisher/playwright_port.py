@@ -1,20 +1,32 @@
 import asyncio
 import re
 from collections.abc import Awaitable, Callable
+from functools import partial
 from pathlib import Path
 from typing import Any
 
-from playwright.async_api import Browser, Page, Playwright, async_playwright
+from playwright.async_api import (
+    Browser,
+    Page,
+    Playwright,
+    async_playwright,
+)
+from playwright.async_api import (
+    TimeoutError as PlaywrightTimeoutError,
+)
 
 from app.domain.errors import ManualReviewRequired
 from app.domain.models import ProductPayload
 from app.ingest.model_number import normalize_model
-from app.publisher.form_plan import build_form_plan
+from app.publisher.form_plan import FormField, build_form_plan
 from app.publisher.quality import parse_quality_check
 
 SAVE_DRAFT_BUTTON = "#saveDraftButton"
 MEDIA_FINGERPRINT_KEY = "1688-uploader:media-fingerprint"
 DETAIL_SELECTION_PATTERN = re.compile(r"要插入的图片\(1/\d+\)")
+ATTRIBUTE_OPTION_TIMEOUT_MS = 500
+FIELD_RETAIN_TIMEOUT_SECONDS = 0.5
+FIELD_RETAIN_POLL_SECONDS = 0.05
 
 DETAIL_SYNC_SCRIPT = r"""
 (html) => {
@@ -90,6 +102,116 @@ async def _fill_and_verify(field: Any, value: str, *, label: str, retries: int =
         if value_matches(await field.input_value(), value):
             return
     raise ManualReviewRequired(f"field did not retain expected value: {label}")
+
+
+async def _wait_for_condition(
+    condition: Callable[[], Awaitable[bool]],
+    *,
+    timeout_seconds: float,
+    poll_seconds: float,
+) -> bool:
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout_seconds
+    while True:
+        if await condition():
+            return True
+        if loop.time() >= deadline:
+            return False
+        await asyncio.sleep(poll_seconds)
+
+
+async def _ensure_locator_capacity(
+    locator: Any, fields: tuple[FormField, ...], *, label: str
+) -> None:
+    if not fields:
+        return
+    maximum_index = max(entry.index for entry in fields)
+    available = await locator.count()
+    if available <= maximum_index:
+        raise ManualReviewRequired(
+            f"{label} structure does not cover planned index {maximum_index}: found {available}"
+        )
+
+
+async def _fill_attribute_fields(
+    page: Any,
+    attributes: Any,
+    fields: tuple[FormField, ...],
+    *,
+    option_timeout_ms: float = ATTRIBUTE_OPTION_TIMEOUT_MS,
+    retain_timeout_seconds: float = FIELD_RETAIN_TIMEOUT_SECONDS,
+    poll_seconds: float = FIELD_RETAIN_POLL_SECONDS,
+) -> None:
+    await _ensure_locator_capacity(attributes, fields, label="product attribute")
+    for entry in fields:
+        field = attributes.nth(entry.index)
+        if await field.input_value() == entry.value:
+            continue
+        await field.click()
+        await field.fill("")
+        await field.type(entry.value)
+        option = page.get_by_role("option", name=entry.value, exact=True)
+        try:
+            await option.first.wait_for(state="visible", timeout=option_timeout_ms)
+        except PlaywrightTimeoutError:
+            await field.press("Tab")
+        else:
+            await option.first.click(timeout=option_timeout_ms)
+
+        if not await _wait_for_condition(
+            partial(_attribute_field_retains, field, entry.value),
+            timeout_seconds=retain_timeout_seconds,
+            poll_seconds=poll_seconds,
+        ):
+            raise ManualReviewRequired(f"field did not retain expected value: {entry.label}")
+
+
+def _display_value_matches(current: str, desired: str) -> bool:
+    current_value = " ".join(current.split())
+    desired_value = " ".join(desired.split())
+    if current_value == desired_value:
+        return True
+    boundary_pattern = rf"(?<![\w.]){re.escape(desired_value)}(?![\w.])"
+    return re.search(boundary_pattern, current_value) is not None
+
+
+async def _attribute_field_retains(field: Any, value: str) -> bool:
+    current: str = await field.input_value()
+    return current == value
+
+
+async def _spec_cell_retains(cell: Any, value: str) -> bool:
+    inputs = cell.locator("input")
+    if await inputs.count():
+        current: str = await inputs.first.input_value()
+        return current == value
+    return _display_value_matches(await cell.inner_text(), value)
+
+
+async def _fill_spec_fields(
+    page: Any,
+    cells: Any,
+    fields: tuple[FormField, ...],
+    *,
+    retain_timeout_seconds: float = FIELD_RETAIN_TIMEOUT_SECONDS,
+    poll_seconds: float = FIELD_RETAIN_POLL_SECONDS,
+) -> None:
+    await _ensure_locator_capacity(cells, fields, label="product specification")
+    for entry in fields:
+        cell = cells.nth(entry.index)
+        if await _spec_cell_retains(cell, entry.value):
+            continue
+        await cell.click()
+        focused = page.locator("input:focus")
+        await focused.fill(entry.value)
+        await focused.press("Tab")
+
+        if not await _wait_for_condition(
+            partial(_spec_cell_retains, cell, entry.value),
+            timeout_seconds=retain_timeout_seconds,
+            poll_seconds=poll_seconds,
+        ):
+            raise ManualReviewRequired(f"field did not retain expected value: {entry.label}")
 
 
 def detail_upload_is_ready(body_text: str) -> bool:
@@ -351,37 +473,13 @@ class Playwright1688Port:
 
     async def fill_product(self, payload: ProductPayload) -> None:
         plan = build_form_plan(payload)
-        await self.page.locator('input[placeholder^="建议使用通俗的产品名称"]').fill(plan.title)
         attributes = self.page.locator('input[placeholder="如无合适选项可直接输入填写"]')
-        for entry in plan.attribute_fields:
-            field = attributes.nth(entry.index)
-            if value_matches(await field.input_value(), entry.value):
-                continue
-            await field.click()
-            await field.fill("")
-            await self.page.keyboard.type(entry.value)
-            option = self.page.get_by_role("option", name=entry.value, exact=True)
-            if await option.count() and await option.first.is_visible():
-                await option.first.click(timeout=3_000)
-            else:
-                await field.press("Tab")
-
         cells = self.page.locator(".ind-table-antd-input-box")
-        if await cells.count() < 7:
-            raise ManualReviewRequired("product specification table is not ready")
-        for entry in plan.spec_fields:
-            cell = cells.nth(entry.index)
-            if value_matches(await cell.inner_text(), entry.value, contains=True):
-                continue
-            await cell.click()
-            focused = self.page.locator("input:focus")
-            await focused.fill(entry.value)
-            await focused.press("Tab")
-            await asyncio.sleep(0)
-            if not value_matches(await cell.inner_text(), entry.value, contains=True):
-                raise ManualReviewRequired(
-                    f"field did not retain expected value: {entry.label}"
-                )
+        await _ensure_locator_capacity(attributes, plan.attribute_fields, label="product attribute")
+        await _ensure_locator_capacity(cells, plan.spec_fields, label="product specification")
+        await self.page.locator('input[placeholder^="建议使用通俗的产品名称"]').fill(plan.title)
+        await _fill_attribute_fields(self.page, attributes, plan.attribute_fields)
+        await _fill_spec_fields(self.page, cells, plan.spec_fields)
 
         price = self.page.locator('#guid-priceRange input[placeholder="请输入"]:visible')
         await _fill_and_verify(price.nth(0), plan.sales_values[0], label="minimum order quantity")
