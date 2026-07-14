@@ -165,6 +165,23 @@ async def _wait_for_condition(
         await asyncio.sleep(poll_seconds)
 
 
+async def _wait_for_locator_text(
+    locator: Any,
+    desired: str,
+    *,
+    timeout_seconds: float = FIELD_RETAIN_TIMEOUT_SECONDS,
+    poll_seconds: float = FIELD_RETAIN_POLL_SECONDS,
+) -> bool:
+    async def retained() -> bool:
+        return value_matches(await locator.inner_text(), desired)
+
+    return await _wait_for_condition(
+        retained,
+        timeout_seconds=timeout_seconds,
+        poll_seconds=poll_seconds,
+    )
+
+
 async def _require_field_count(locator: Any, *, expected: int, label: str) -> None:
     available = await locator.count()
     if available != expected:
@@ -620,8 +637,8 @@ class Playwright1688Port:
             )
             await option.wait_for(state="attached", timeout=5_000)
             await option.evaluate("element => element.click()")
-            await self.page.wait_for_timeout(100)
-            if plan.delivery_time not in await delivery_module.inner_text():
+            selected_delivery = delivery_module.locator(".ant-select-selection-item").last
+            if not await _wait_for_locator_text(selected_delivery, plan.delivery_time):
                 raise ManualReviewRequired("delivery time did not retain expected value")
 
         freight_module = self.page.locator("#guid-freight")
@@ -636,8 +653,7 @@ class Playwright1688Port:
                 )
                 await option.wait_for(state="attached", timeout=5_000)
                 await option.evaluate("element => element.click()")
-                await self.page.wait_for_timeout(100)
-                if value_matches(await selected.inner_text(), plan.shipping_template):
+                if await _wait_for_locator_text(selected, plan.shipping_template):
                     break
             else:
                 raise ManualReviewRequired("freight template did not retain expected value")

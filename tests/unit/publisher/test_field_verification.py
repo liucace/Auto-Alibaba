@@ -1,7 +1,7 @@
 import pytest
 
 from app.domain.errors import ManualReviewRequired
-from app.publisher.playwright_port import _fill_and_verify
+from app.publisher.playwright_port import _fill_and_verify, _wait_for_locator_text
 
 
 class FakeField:
@@ -26,6 +26,18 @@ class FakeField:
 
     async def input_value(self) -> str:
         return self.value
+
+
+class FakeDelayedText:
+    def __init__(self, *values: str) -> None:
+        self.values = list(values)
+        self.reads = 0
+
+    async def inner_text(self) -> str:
+        self.reads += 1
+        if len(self.values) > 1:
+            return self.values.pop(0)
+        return self.values[0]
 
 
 @pytest.mark.asyncio
@@ -54,3 +66,18 @@ async def test_fill_and_verify_rejects_repeated_mismatch() -> None:
 
     with pytest.raises(ManualReviewRequired, match="package weight"):
         await _fill_and_verify(field, "39850", label="package weight")
+
+
+@pytest.mark.asyncio
+async def test_wait_for_locator_text_accepts_delayed_react_update() -> None:
+    locator = FakeDelayedText("old template", "old template", "freight")
+
+    retained = await _wait_for_locator_text(
+        locator,
+        "freight",
+        timeout_seconds=0.01,
+        poll_seconds=0,
+    )
+
+    assert retained is True
+    assert locator.reads == 3
