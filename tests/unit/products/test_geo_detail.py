@@ -140,16 +140,93 @@ def test_geo_detail_renders_approved_rich_document(dp201at_payload: ProductPaylo
     for text in (
         "DP201AT-2122HBL.GN",
         "220-240VAC",
-        "66CFM / 112.1m³/h",
-        "80CFM / 135.9m³/h",
+        "66CFM",
+        "112.1m³/h",
+        "80CFM",
+        "135.9m³/h",
         "119±0.5mm",
         "25.5±0.5mm",
         "104.8±0.3mm",
         "320±10mm",
-        "1688平台风叶直径映射（外框宽度）",
-        "前值对应50Hz工作点，后值对应60Hz工作点；它们属于同一SKU",
+        "1688中的0.119m是什么意思？",
+        "斜杠前对应50Hz，斜杠后对应60Hz",
     ):
         assert text in document.html
+
+
+def test_geo_detail_matches_approved_confirmation_canvas(
+    dp201at_payload: ProductPayload,
+) -> None:
+    document = _render(dp201at_payload)
+    soup = BeautifulSoup(document.html, "html.parser")
+
+    hero = soup.select_one('[data-geo-section="entity-answer"]')
+    assert hero is not None
+    assert "linear-gradient(135deg,#073a70,#0a5da4)" in hero.get("style", "")
+    assert hero.select_one("h2").get_text(strip=True) == "DP201AT-2122HBL.GN 是什么规格？"
+    assert "220-240VAC、50/60Hz交流轴流风扇" in hero.get_text()
+
+    quick_cards = soup.select('[data-geo-component="quick-cards"] td')
+    assert len(quick_cards) == 4
+    assert [card.select_one("b").get_text(strip=True) for card in quick_cards] == [
+        "额定电压",
+        "额定风量",
+        "额定转速",
+        "重量",
+    ]
+    assert [card.select_one("span").get_text(strip=True) for card in quick_cards] == [
+        "220-240VAC",
+        "66/80CFM",
+        "2150/2500",
+        "295g",
+    ]
+
+    core = soup.select_one('[data-geo-section="core-parameters"]')
+    assert core is not None
+    assert core.select_one("h2").get_text(strip=True) == "一眼确认：型号与关键参数"
+    assert "采购时先核对完整型号、额定电压、频率和尺寸" in core.get_text()
+    assert all(len(row.select("th,td")) == 4 for row in core.select("tr"))
+
+    comparison = soup.select_one('[data-geo-component="frequency-comparison"]')
+    assert comparison is not None
+    assert [cell.get_text(strip=True) for cell in comparison.select("thead th")] == [
+        "规格项目",
+        "50Hz",
+        "60Hz",
+    ]
+    assert [cell.get_text(strip=True) for cell in comparison.select("tbody tr")[0].select("td")] == [
+        "额定功率",
+        "18W",
+        "16.5W",
+    ]
+    assert "1CFM≈1.699m³/h" in soup.select_one(
+        '[data-geo-component="conversion-note"]'
+    ).get_text()
+
+    photo_grid = soup.select_one('[data-geo-component="photo-grid"]')
+    assert photo_grid is not None
+    assert len(photo_grid.select("img")) == 4
+    assert [caption.get_text(strip=True) for caption in photo_grid.select("p")] == [
+        "铭牌侧整机",
+        "铭牌侧视图",
+        "叶轮侧视图",
+        "侧面与引线",
+    ]
+
+    checklist = soup.select_one('[data-geo-component="purchase-checklist"]')
+    assert checklist is not None
+    assert len(checklist.select("td")) == 6
+    assert "斜杠参数按50Hz/60Hz顺序读取" in checklist.get_text()
+
+    faq_cards = soup.select('[data-geo-section="faq"] [data-geo-component="faq-card"]')
+    assert len(faq_cards) == 5
+    assert all("border-left:4px solid #ff7a1a" in card.get("style", "") for card in faq_cards)
+
+    company = soup.select_one('[data-geo-section="company"]')
+    assert company is not None
+    assert "text-align:center" in company.select_one("div").get("style", "")
+    assert "以下6张公司介绍图片" in company.get_text()
+    assert not soup.select("style,script,section")
 
 
 def test_sparse_detail_omits_unsupported_optional_sections(
@@ -248,10 +325,13 @@ def test_geo_detail_deduplicates_rows_without_merging_different_meanings(
     )
 
     soup = BeautifulSoup(_render(payload).html, "html.parser")
-    rows = [
-        tuple(cell.get_text(strip=True) for cell in row.select("td"))
+    cells = [
+        cell.get_text(strip=True)
         for row in soup.select('[data-geo-section="core-parameters"] tr')
+        for cell in row.select("th,td")
+        if cell.get_text(strip=True)
     ]
+    rows = list(zip(cells[0::2], cells[1::2], strict=True))
 
     assert rows == [
         ("品牌", "SUNON"),
