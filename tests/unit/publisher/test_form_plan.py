@@ -1,3 +1,6 @@
+import pytest
+
+from app.domain.errors import ManualReviewRequired
 from app.domain.models import PackageInfo, ProductPayload
 from app.publisher.form_plan import FormField, build_form_plan
 
@@ -6,7 +9,7 @@ def test_form_plan_contains_only_verified_business_values() -> None:
     payload = ProductPayload(
         model="W3G630-NU33-03",
         brand="ebm-papst",
-        title="W3G630-NU33-03 title",
+        title="ebm-papst W3G630-NU33-03 400V EC轴流风机",
         category_id=1034320,
         industry_category_id=2293,
         attributes={
@@ -69,7 +72,7 @@ def test_form_plan_preserves_sparse_sunon_field_indices() -> None:
     payload = ProductPayload(
         model="A2175-HBL",
         brand="SUNON",
-        title="SUNON A2175-HBL title",
+        title="SUNON A2175-HBL 220V 轴流风扇",
         category_id=1034320,
         industry_category_id=2293,
         attributes={
@@ -114,3 +117,23 @@ def test_form_plan_preserves_sparse_sunon_field_indices() -> None:
     assert plan.package_values == ("18", "18", "7", "700")
     assert plan.delivery_time == "48小时发货"
     assert plan.shipping_template == "运费"
+
+
+def test_form_plan_rejects_manually_modified_title_before_browser_use() -> None:
+    payload = ProductPayload(
+        model="DP201AT-2122HBL.GN",
+        brand="SUNON",
+        title="SUNON 220-240V 交流轴流风扇",
+        category_id=1034320,
+        industry_category_id=2293,
+        attributes={"产品别名": "交流轴流风扇"},
+        specification={"规格型号": "DP201AT-2122HBL.GN"},
+        price=188,
+        stock=10,
+        delivery_time="48小时发货",
+        shipping_template="运费",
+        package=PackageInfo(length_cm=12, width_cm=12, height_cm=2.5, weight_g=295),
+    )
+
+    with pytest.raises(ManualReviewRequired, match="完整型号"):
+        build_form_plan(payload)

@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 from app.domain.models import ProductPayload
+from app.products.title_policy import validate_product_title
 
 
 def _text(value: str | int | float) -> str:
@@ -31,6 +32,12 @@ class FormPlan:
 def build_form_plan(payload: ProductPayload) -> FormPlan:
     attributes = payload.attributes
     specification = payload.specification
+    title = validate_product_title(
+        title=payload.title,
+        brand=payload.brand,
+        model=payload.model,
+        product_name=payload.attributes.get("产品别名"),
+    )
     attribute_labels = (
         "电压",
         "产品别名",
@@ -57,7 +64,7 @@ def build_form_plan(payload: ProductPayload) -> FormPlan:
             f"catId={payload.category_id}&industryCategoryId={payload.industry_category_id}"
             "&saleChannel=default&operator=new"
         ),
-        title=payload.title,
+        title=title,
         attribute_fields=tuple(
             FormField(index=index, label=label, value=value)
             for index, label in enumerate(attribute_labels)

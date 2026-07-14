@@ -21,6 +21,7 @@ from app.products.detail_assets import prepare_detail_drawing
 from app.products.loader import find_source_directory
 from app.products.main_images import prepare_square_image
 from app.products.specification_policy import materialize_platform_specification
+from app.products.title_policy import validate_product_title
 
 
 class DrawingEvidence(BaseModel):
@@ -168,10 +169,16 @@ def prepare_product(root: Path, model: str) -> PrepareResult:
         evidence.specification,
         evidence.operating_points,
     )
+    title = validate_product_title(
+        title=evidence.title,
+        brand=evidence.brand,
+        model=normalized,
+        product_name=evidence.attributes.get("产品别名"),
+    )
     payload = ProductPayload(
         model=normalized,
         brand=evidence.brand,
-        title=evidence.title,
+        title=title,
         category_id=1034320,
         industry_category_id=2293,
         attributes=evidence.attributes,

@@ -53,7 +53,7 @@ def test_prepare_product_builds_validated_artifacts_and_square_images(tmp_path: 
         "model": model,
         "brand": "ebm-papst",
         "pdf_file": pdf_name,
-        "title": f"ebm-papst {model} 400V EC轴流工业风扇",
+        "title": f"ebm-papst {model} 400V EC轴流风机",
         "attributes": {
             "电压": "400",
             "产品别名": "EC轴流风机",
