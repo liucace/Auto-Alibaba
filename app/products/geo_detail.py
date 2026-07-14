@@ -198,9 +198,9 @@ def _table(rows: list[tuple[str, str]]) -> str:
 def _section(slug: str, title: str, body: str, *, alternate: bool = False) -> str:
     background = "#f6f8fb" if alternate else "#ffffff"
     return (
-        f'<section data-geo-section="{escape(slug, quote=True)}" '
+        f'<div data-geo-section="{escape(slug, quote=True)}" '
         f'style="padding:20px 16px;background:{background};border-bottom:1px solid #d8d8d8">'
-        f"{_heading(title)}{body}</section>"
+        f"{_heading(title)}{body}</div>"
     )
 
 

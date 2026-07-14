@@ -122,6 +122,8 @@ def test_geo_detail_renders_approved_rich_document(dp201at_payload: ProductPaylo
         "faq",
         "company",
     ]
+    assert all(node.name == "div" for node in soup.select("[data-geo-section]"))
+    assert not soup.select("section")
     assert document.image_count == 11
     assert tuple(image["src"] for image in soup.select("img")) == document.image_sources
     assert len(set(document.image_sources)) == 11
