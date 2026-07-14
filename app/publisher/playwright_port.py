@@ -615,16 +615,30 @@ class Playwright1688Port:
             attributes, expected=ATTRIBUTE_FIELD_COUNT, label="product attribute"
         )
         await _require_field_count(cells, expected=SPEC_FIELD_COUNT, label="product specification")
-        await self.page.locator('input[placeholder^="建议使用通俗的产品名称"]').fill(plan.title)
+        title_field = self.page.locator('input[placeholder^="建议使用通俗的产品名称"]')
+        if await title_field.get_attribute("maxlength") != "60":
+            raise ManualReviewRequired("1688 title field no longer exposes maxlength=60")
+        await _fill_and_verify(title_field, plan.title, label="product title")
         await _fill_attribute_fields(self.page, attributes, plan.attribute_fields)
         await _fill_spec_fields(self.page, cells, plan.spec_fields)
 
         price = self.page.locator('#guid-priceRange input[placeholder="请输入"]:visible')
-        await _fill_and_verify(price.nth(0), plan.sales_values[0], label="minimum order quantity")
-        await _fill_and_verify(price.nth(1), plan.sales_values[1], label="price")
-        sku = self.page.locator('#guid-skuTable input[placeholder="请输入"]:visible')
-        await _fill_and_verify(sku.nth(0), plan.sales_values[2], label="stock")
-        await _fill_and_verify(sku.nth(1), plan.sales_values[3], label="sku model")
+        await _fill_and_verify(
+            price.nth(0), plan.minimum_order_quantity, label="minimum order quantity"
+        )
+        await _fill_and_verify(price.nth(1), plan.price, label="price")
+        sku_module = self.page.locator("#guid-skuTable")
+        sku_inputs = sku_module.locator('input[placeholder="请输入"]:visible')
+        if await sku_inputs.count() != 2:
+            raise ManualReviewRequired(
+                "single-SKU table no longer exposes stock and item-code inputs"
+            )
+        if plan.sku.model not in " ".join((await sku_module.inner_text()).split()):
+            raise ManualReviewRequired(
+                "single-SKU model is not synchronized from product specification"
+            )
+        await _fill_and_verify(sku_inputs.nth(0), plan.sku.stock, label="stock")
+        await _fill_and_verify(sku_inputs.nth(1), plan.sku.item_code, label="item code")
 
         delivery_module = self.page.locator("#guid-buyerProtection")
         if plan.delivery_time not in await delivery_module.inner_text():

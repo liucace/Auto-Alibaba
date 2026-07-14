@@ -111,6 +111,18 @@ def test_fill_product_iterates_only_sparse_form_fields() -> None:
     assert "attributes.nth(2)" not in source
 
 
+def test_fill_product_enforces_real_title_and_single_sku_contract() -> None:
+    source = inspect.getsource(Playwright1688Port.fill_product)
+
+    assert 'get_attribute("maxlength") != "60"' in source
+    assert 'sku_module = self.page.locator("#guid-skuTable")' in source
+    assert "await sku_inputs.count() != 2" in source
+    assert "plan.sku.model not in" in source
+    assert "plan.sku.stock" in source
+    assert "plan.sku.item_code" in source
+    assert "sales_values" not in source
+
+
 def test_sparse_attribute_option_uses_bounded_visibility_wait() -> None:
     source = inspect.getsource(_fill_attribute_fields)
 

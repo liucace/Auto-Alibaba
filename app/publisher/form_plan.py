@@ -18,12 +18,22 @@ class FormField:
 
 
 @dataclass(frozen=True)
+class SkuPlan:
+    model: str
+    stock: str
+    item_code: str
+    enabled: bool = True
+
+
+@dataclass(frozen=True)
 class FormPlan:
     category_url: str
     title: str
     attribute_fields: tuple[FormField, ...]
     spec_fields: tuple[FormField, ...]
-    sales_values: tuple[str, ...]
+    minimum_order_quantity: str
+    price: str
+    sku: SkuPlan
     delivery_time: str
     shipping_template: str
     package_values: tuple[str, ...]
@@ -75,7 +85,13 @@ def build_form_plan(payload: ProductPayload) -> FormPlan:
             for index, label in enumerate(spec_labels)
             if label in specification and (value := _text(specification[label]))
         ),
-        sales_values=("1", str(payload.price), str(payload.stock), payload.model),
+        minimum_order_quantity="1",
+        price=str(payload.price),
+        sku=SkuPlan(
+            model=payload.model,
+            stock=str(payload.stock),
+            item_code=payload.model,
+        ),
         delivery_time=payload.delivery_time,
         shipping_template=payload.shipping_template,
         package_values=(
