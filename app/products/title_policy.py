@@ -8,12 +8,16 @@ def _compact(value: str) -> str:
     return " ".join(value.split())
 
 
+def _platform_length(value: str) -> int:
+    return sum(1 if character.isascii() else 2 for character in value)
+
+
 def validate_product_title(
     *, title: str, brand: str, model: str, product_name: str | None
 ) -> str:
     clean = _compact(title)
-    if not clean or len(clean) > MAX_1688_TITLE_LENGTH:
-        raise ManualReviewRequired("商品标题必须为1到60个字符")
+    if not clean or _platform_length(clean) > MAX_1688_TITLE_LENGTH:
+        raise ManualReviewRequired("商品标题按1688加权计数必须为1到60个字符")
     if clean.casefold().count(model.casefold()) != 1:
         raise ManualReviewRequired("商品标题必须且只能包含一次完整型号")
     if brand.casefold() not in clean.casefold():

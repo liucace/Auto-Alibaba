@@ -5,7 +5,7 @@ from app.products.title_policy import validate_product_title
 
 
 def test_accepts_approved_dp201at_title() -> None:
-    title = "SUNON建准 DP201AT-2122HBL.GN 220-240V 120mm滚珠轴承交流轴流风扇"
+    title = "SUNON DP201AT-2122HBL.GN 220-240V 120mm滚珠轴承交流轴流风扇"
 
     assert (
         validate_product_title(
@@ -16,7 +16,19 @@ def test_accepts_approved_dp201at_title() -> None:
         )
         == title
     )
-    assert len(title) == 51
+    assert len(title) == 49
+
+
+def test_rejects_title_that_1688_weighted_counter_counts_above_60() -> None:
+    title = "SUNON建准 DP201AT-2122HBL.GN 220-240V 120mm滚珠轴承交流轴流风扇"
+
+    with pytest.raises(ManualReviewRequired, match="60"):
+        validate_product_title(
+            title=title,
+            brand="SUNON",
+            model="DP201AT-2122HBL.GN",
+            product_name="交流轴流风扇",
+        )
 
 
 @pytest.mark.parametrize(

@@ -75,6 +75,7 @@ def test_skill_documents_approved_geo_single_sku_and_fixed_tail_contract() -> No
 
     assert "外部输入仅限当前型号 PDF、至少四张真实产品照片，以及 Excel 中的价格和库存" in skill
     assert "标题不超过 60 个字符" in skill
+    assert "ASCII 字符计 1、中文字符计 2" in skill
     assert "品牌、完整型号和产品名称" in skill
     assert "50/60Hz 斜杠参数" in skill
     assert "不得拆成多个 SKU" in skill

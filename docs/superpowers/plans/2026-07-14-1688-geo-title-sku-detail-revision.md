@@ -263,7 +263,7 @@ from app.products.title_policy import validate_product_title
 
 
 def test_accepts_approved_dp201at_title() -> None:
-    title = "SUNON建准 DP201AT-2122HBL.GN 220-240V 120mm滚珠轴承交流轴流风扇"
+    title = "SUNON DP201AT-2122HBL.GN 220-240V 120mm滚珠轴承交流轴流风扇"
 
     assert validate_product_title(
         title=title,
@@ -271,7 +271,7 @@ def test_accepts_approved_dp201at_title() -> None:
         model="DP201AT-2122HBL.GN",
         product_name="交流轴流风扇",
     ) == title
-    assert len(title) == 51
+    assert len(title) == 49
 
 
 @pytest.mark.parametrize(
@@ -319,12 +319,16 @@ def _compact(value: str) -> str:
     return " ".join(value.split())
 
 
+def _platform_length(value: str) -> int:
+    return sum(1 if character.isascii() else 2 for character in value)
+
+
 def validate_product_title(
     *, title: str, brand: str, model: str, product_name: str | None
 ) -> str:
     clean = _compact(title)
-    if not clean or len(clean) > MAX_1688_TITLE_LENGTH:
-        raise ManualReviewRequired("商品标题必须为1到60个字符")
+    if not clean or _platform_length(clean) > MAX_1688_TITLE_LENGTH:
+        raise ManualReviewRequired("商品标题按1688加权计数必须为1到60个字符")
     if clean.casefold().count(model.casefold()) != 1:
         raise ManualReviewRequired("商品标题必须且只能包含一次完整型号")
     if brand.casefold() not in clean.casefold():
@@ -1220,7 +1224,7 @@ Keep the existing PDF, image roles, crop, package, and attributes, and change/ad
 
 ```json
 {
-  "title": "SUNON建准 DP201AT-2122HBL.GN 220-240V 120mm滚珠轴承交流轴流风扇",
+  "title": "SUNON DP201AT-2122HBL.GN 220-240V 120mm滚珠轴承交流轴流风扇",
   "specification": {
     "规格型号": "DP201AT-2122HBL.GN",
     "额定电压_v": "220-240",
@@ -1279,7 +1283,7 @@ Do not add facts absent from PDF pages 3 and 5 or the current model photos.
 ```powershell
 python -m app.cli prepare 'DP201AT-2122HBL.GN' --root 'D:\Auto-Alibaba'
 $payload = Get-Content -Raw -Encoding utf8 'automation\DP201AT-2122HBL.GN\1688_payload.json' | ConvertFrom-Json
-if ($payload.title.Length -ne 51) { throw 'unexpected title length' }
+if ($payload.title.Length -ne 49) { throw 'unexpected title length' }
 if ($payload.specification.风量_m3h -ne '112.1/135.9') { throw 'airflow conversion mismatch' }
 if ($payload.operating_points.Count -ne 2) { throw 'operating points missing' }
 ```
@@ -1338,7 +1342,7 @@ Report the exact title, SKU model, seven specification values, detail image coun
 ## Plan self-review checklist
 
 - Evidence-only input and missing-field omission: Tasks 1, 2, 5, and 8.
-- Exact 51-character title under the 60-character limit: Tasks 2, 3, and 8.
+- Exact 49-character title at 59/60 under 1688's weighted limit: Tasks 2, 3, and 8.
 - Single exact-model SKU and slash values kept as 50/60Hz specifications: Tasks 1 and 3.
 - Seven approved current product specification values: Tasks 1, 3, and 8.
 - Adaptive answer-first GEO modules: Task 5.

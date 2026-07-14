@@ -153,7 +153,7 @@ def test_form_plan_keeps_slash_operating_values_in_one_exact_model_sku() -> None
     payload = ProductPayload(
         model="DP201AT-2122HBL.GN",
         brand="SUNON",
-        title="SUNON建准 DP201AT-2122HBL.GN 220-240V 120mm滚珠轴承交流轴流风扇",
+        title="SUNON DP201AT-2122HBL.GN 220-240V 120mm滚珠轴承交流轴流风扇",
         category_id=1034320,
         industry_category_id=2293,
         attributes={"产品别名": "交流轴流风扇"},
