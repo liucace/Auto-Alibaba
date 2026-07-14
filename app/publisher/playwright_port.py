@@ -212,10 +212,9 @@ async def _fill_attribute_fields(
         option = page.get_by_role("option", name=entry.value, exact=True)
         try:
             await option.first.wait_for(state="visible", timeout=option_timeout_ms)
+            await option.first.click(timeout=option_timeout_ms)
         except PlaywrightTimeoutError:
             await field.press("Tab")
-        else:
-            await option.first.click(timeout=option_timeout_ms)
 
         if not await _wait_for_condition(
             partial(_attribute_field_retains, field, entry.value),

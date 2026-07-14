@@ -14,8 +14,15 @@ from app.publisher.playwright_port import (
 
 
 class FakeOption:
-    def __init__(self, *, times_out: bool = False, delayed: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        times_out: bool = False,
+        delayed: bool = False,
+        click_times_out: bool = False,
+    ) -> None:
         self.times_out = times_out
+        self.click_times_out = click_times_out
         self.visible = not delayed
         self.wait_calls: list[tuple[str, float]] = []
         self.clicks = 0
@@ -34,6 +41,8 @@ class FakeOption:
 
     async def click(self, *, timeout: float) -> None:
         assert self.visible
+        if self.click_times_out:
+            raise PlaywrightTimeoutError("option stayed unstable")
         self.clicks += 1
 
 
@@ -215,6 +224,26 @@ async def test_attribute_fill_tabs_only_after_exact_option_timeout() -> None:
     assert option.wait_calls == [("visible", 75)]
     assert option.clicks == 0
     assert field.presses == ["Tab"]
+
+
+@pytest.mark.asyncio
+async def test_attribute_fill_falls_back_to_verified_direct_input_when_option_click_times_out() -> None:
+    field = FakeField()
+    option = FakeOption(click_times_out=True)
+
+    await _fill_attribute_fields(
+        FakeAttributePage({"SUNON": option}),
+        FakeCollection(9, {3: field}),
+        (FormField(index=3, label="品牌", value="SUNON"),),
+        option_timeout_ms=75,
+        retain_timeout_seconds=0.01,
+        poll_seconds=0,
+    )
+
+    assert option.wait_calls == [("visible", 75)]
+    assert option.clicks == 0
+    assert field.presses == ["Tab"]
+    assert field.value == "SUNON"
 
 
 @pytest.mark.asyncio
