@@ -114,7 +114,7 @@ class FakeCellInput:
         return self
 
     async def count(self) -> int:
-        return 1
+        return int(self.cell.has_input)
 
     async def input_value(self) -> str:
         return self.cell.actual_value
@@ -128,11 +128,13 @@ class FakeCell:
         *,
         retains_typed_value: bool = True,
         display_value: str | None = None,
+        has_input: bool = True,
     ) -> None:
         self.page = page
         self.actual_value = value
         self.display_value = value if display_value is None else display_value
         self.retains_typed_value = retains_typed_value
+        self.has_input = has_input
         self.clicks = 0
 
     async def inner_text(self) -> str:
@@ -179,7 +181,7 @@ async def test_attribute_fill_waits_for_delayed_exact_option() -> None:
 
     await _fill_attribute_fields(
         FakeAttributePage({"SUNON": option}),
-        FakeCollection(4, {3: field}),
+        FakeCollection(9, {3: field}),
         fields,
         option_timeout_ms=75,
         retain_timeout_seconds=0.01,
@@ -199,7 +201,7 @@ async def test_attribute_fill_tabs_only_after_exact_option_timeout() -> None:
 
     await _fill_attribute_fields(
         FakeAttributePage({"SUNON": option}),
-        FakeCollection(4, {3: field}),
+        FakeCollection(9, {3: field}),
         (FormField(index=3, label="品牌", value="SUNON"),),
         option_timeout_ms=75,
         retain_timeout_seconds=0.01,
@@ -214,7 +216,7 @@ async def test_attribute_fill_tabs_only_after_exact_option_timeout() -> None:
 @pytest.mark.asyncio
 async def test_sparse_attribute_and_spec_fields_use_planned_indices() -> None:
     attribute_entries = {index: FakeField() for index in (0, 3, 5)}
-    attribute_collection = FakeCollection(6, attribute_entries)
+    attribute_collection = FakeCollection(9, attribute_entries)
     attribute_fields = tuple(
         FormField(index=index, label=label, value=value)
         for index, label, value in (
@@ -235,7 +237,7 @@ async def test_sparse_attribute_and_spec_fields_use_planned_indices() -> None:
 
     spec_page = FakeSpecPage()
     spec_entries = {index: FakeCell(spec_page) for index in (0, 1, 3, 5)}
-    spec_collection = FakeCollection(6, spec_entries)
+    spec_collection = FakeCollection(7, spec_entries)
     spec_fields = tuple(
         FormField(index=index, label=label, value=value)
         for index, label, value in (
@@ -258,10 +260,13 @@ async def test_sparse_attribute_and_spec_fields_use_planned_indices() -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("kind", ["attribute", "spec"])
-async def test_sparse_fill_rejects_insufficient_locator_structure(kind: str) -> None:
-    fields = (FormField(index=5, label="field", value="value"),)
-    collection = FakeCollection(5, {})
+@pytest.mark.parametrize(
+    ("kind", "count"),
+    (("attribute", 8), ("attribute", 10), ("spec", 6), ("spec", 8)),
+)
+async def test_sparse_fill_rejects_non_exact_locator_structure(kind: str, count: int) -> None:
+    fields = (FormField(index=0, label="field", value="value"),)
+    collection = FakeCollection(count, {})
 
     with pytest.raises(ManualReviewRequired, match="structure"):
         if kind == "attribute":
@@ -292,7 +297,7 @@ async def test_attribute_fill_raises_when_exact_value_is_not_retained() -> None:
     with pytest.raises(ManualReviewRequired, match="品牌"):
         await _fill_attribute_fields(
             FakeAttributePage({"SUNON": FakeOption(times_out=True)}),
-            FakeCollection(4, {3: field}),
+            FakeCollection(9, {3: field}),
             (FormField(index=3, label="品牌", value="SUNON"),),
             option_timeout_ms=1,
             retain_timeout_seconds=0.001,
@@ -308,7 +313,7 @@ async def test_spec_fill_does_not_accept_numeric_substrings_as_retained() -> Non
     with pytest.raises(ManualReviewRequired, match="电机功率_w"):
         await _fill_spec_fields(
             page,
-            FakeCollection(2, {1: cell}),
+            FakeCollection(7, {1: cell}),
             (FormField(index=1, label="电机功率_w", value="45"),),
             retain_timeout_seconds=0.001,
             poll_seconds=0,
@@ -323,8 +328,45 @@ async def test_spec_fill_prefers_exact_actual_value_over_stale_display() -> None
     with pytest.raises(ManualReviewRequired, match="电机功率_w"):
         await _fill_spec_fields(
             page,
-            FakeCollection(2, {1: cell}),
+            FakeCollection(7, {1: cell}),
             (FormField(index=1, label="电机功率_w", value="45"),),
             retain_timeout_seconds=0.001,
             poll_seconds=0,
         )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("display", ["A2175-HBL-X", "A2175-HBL-GN-REV2"])
+async def test_spec_model_display_fallback_rejects_longer_model(display: str) -> None:
+    page = FakeSpecPage()
+    cell = FakeCell(
+        page,
+        retains_typed_value=False,
+        display_value=display,
+        has_input=False,
+    )
+
+    with pytest.raises(ManualReviewRequired, match="规格型号"):
+        await _fill_spec_fields(
+            page,
+            FakeCollection(7, {0: cell}),
+            (FormField(index=0, label="规格型号", value="A2175-HBL"),),
+            retain_timeout_seconds=0.001,
+            poll_seconds=0,
+        )
+
+
+@pytest.mark.asyncio
+async def test_spec_numeric_display_fallback_accepts_declared_unit() -> None:
+    page = FakeSpecPage()
+    cell = FakeCell(page, display_value="45 W", has_input=False)
+
+    await _fill_spec_fields(
+        page,
+        FakeCollection(7, {1: cell}),
+        (FormField(index=1, label="电机功率_w", value="45"),),
+        retain_timeout_seconds=0.001,
+        poll_seconds=0,
+    )
+
+    assert cell.clicks == 0

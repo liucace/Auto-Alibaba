@@ -27,6 +27,16 @@ DETAIL_SELECTION_PATTERN = re.compile(r"要插入的图片\(1/\d+\)")
 ATTRIBUTE_OPTION_TIMEOUT_MS = 500
 FIELD_RETAIN_TIMEOUT_SECONDS = 0.5
 FIELD_RETAIN_POLL_SECONDS = 0.05
+ATTRIBUTE_FIELD_COUNT = 9
+SPEC_FIELD_COUNT = 7
+SPEC_DISPLAY_UNITS: dict[str, tuple[str, ...]] = {
+    "电机功率_w": ("W",),
+    "风叶直径_m": ("m",),
+    "转速_rpm": ("rpm",),
+    "风量_m3h": ("m³/h", "m3/h", "m³h", "m3h"),
+    "电流_a": ("A",),
+    "重量_kg": ("kg",),
+}
 
 DETAIL_SYNC_SCRIPT = r"""
 (html) => {
@@ -120,16 +130,11 @@ async def _wait_for_condition(
         await asyncio.sleep(poll_seconds)
 
 
-async def _ensure_locator_capacity(
-    locator: Any, fields: tuple[FormField, ...], *, label: str
-) -> None:
-    if not fields:
-        return
-    maximum_index = max(entry.index for entry in fields)
+async def _require_field_count(locator: Any, *, expected: int, label: str) -> None:
     available = await locator.count()
-    if available <= maximum_index:
+    if available != expected:
         raise ManualReviewRequired(
-            f"{label} structure does not cover planned index {maximum_index}: found {available}"
+            f"{label} structure expected {expected} fields: found {available}"
         )
 
 
@@ -142,7 +147,9 @@ async def _fill_attribute_fields(
     retain_timeout_seconds: float = FIELD_RETAIN_TIMEOUT_SECONDS,
     poll_seconds: float = FIELD_RETAIN_POLL_SECONDS,
 ) -> None:
-    await _ensure_locator_capacity(attributes, fields, label="product attribute")
+    await _require_field_count(
+        attributes, expected=ATTRIBUTE_FIELD_COUNT, label="product attribute"
+    )
     for entry in fields:
         field = attributes.nth(entry.index)
         if await field.input_value() == entry.value:
@@ -166,13 +173,20 @@ async def _fill_attribute_fields(
             raise ManualReviewRequired(f"field did not retain expected value: {entry.label}")
 
 
-def _display_value_matches(current: str, desired: str) -> bool:
+def _spec_display_matches(current: str, entry: FormField) -> bool:
     current_value = " ".join(current.split())
-    desired_value = " ".join(desired.split())
+    desired_value = " ".join(entry.value.split())
     if current_value == desired_value:
         return True
-    boundary_pattern = rf"(?<![\w.]){re.escape(desired_value)}(?![\w.])"
-    return re.search(boundary_pattern, current_value) is not None
+    units = SPEC_DISPLAY_UNITS.get(entry.label)
+    if units is None:
+        return False
+    unit_pattern = "|".join(re.escape(unit) for unit in units)
+    return re.fullmatch(
+        rf"{re.escape(desired_value)}\s*(?:{unit_pattern})",
+        current_value,
+        flags=re.IGNORECASE,
+    ) is not None
 
 
 async def _attribute_field_retains(field: Any, value: str) -> bool:
@@ -180,12 +194,12 @@ async def _attribute_field_retains(field: Any, value: str) -> bool:
     return current == value
 
 
-async def _spec_cell_retains(cell: Any, value: str) -> bool:
+async def _spec_cell_retains(cell: Any, entry: FormField) -> bool:
     inputs = cell.locator("input")
     if await inputs.count():
         current: str = await inputs.first.input_value()
-        return current == value
-    return _display_value_matches(await cell.inner_text(), value)
+        return current == entry.value
+    return _spec_display_matches(await cell.inner_text(), entry)
 
 
 async def _fill_spec_fields(
@@ -196,10 +210,10 @@ async def _fill_spec_fields(
     retain_timeout_seconds: float = FIELD_RETAIN_TIMEOUT_SECONDS,
     poll_seconds: float = FIELD_RETAIN_POLL_SECONDS,
 ) -> None:
-    await _ensure_locator_capacity(cells, fields, label="product specification")
+    await _require_field_count(cells, expected=SPEC_FIELD_COUNT, label="product specification")
     for entry in fields:
         cell = cells.nth(entry.index)
-        if await _spec_cell_retains(cell, entry.value):
+        if await _spec_cell_retains(cell, entry):
             continue
         await cell.click()
         focused = page.locator("input:focus")
@@ -207,7 +221,7 @@ async def _fill_spec_fields(
         await focused.press("Tab")
 
         if not await _wait_for_condition(
-            partial(_spec_cell_retains, cell, entry.value),
+            partial(_spec_cell_retains, cell, entry),
             timeout_seconds=retain_timeout_seconds,
             poll_seconds=poll_seconds,
         ):
@@ -475,8 +489,10 @@ class Playwright1688Port:
         plan = build_form_plan(payload)
         attributes = self.page.locator('input[placeholder="如无合适选项可直接输入填写"]')
         cells = self.page.locator(".ind-table-antd-input-box")
-        await _ensure_locator_capacity(attributes, plan.attribute_fields, label="product attribute")
-        await _ensure_locator_capacity(cells, plan.spec_fields, label="product specification")
+        await _require_field_count(
+            attributes, expected=ATTRIBUTE_FIELD_COUNT, label="product attribute"
+        )
+        await _require_field_count(cells, expected=SPEC_FIELD_COUNT, label="product specification")
         await self.page.locator('input[placeholder^="建议使用通俗的产品名称"]').fill(plan.title)
         await _fill_attribute_fields(self.page, attributes, plan.attribute_fields)
         await _fill_spec_fields(self.page, cells, plan.spec_fields)
