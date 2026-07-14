@@ -6,7 +6,11 @@ from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 from app.domain.errors import ManualReviewRequired
 from app.publisher.form_plan import FormField
-from app.publisher.playwright_port import _fill_attribute_fields, _fill_spec_fields
+from app.publisher.playwright_port import (
+    _fill_attribute_fields,
+    _fill_spec_fields,
+    _spec_display_matches,
+)
 
 
 class FakeOption:
@@ -370,3 +374,9 @@ async def test_spec_numeric_display_fallback_accepts_declared_unit() -> None:
     )
 
     assert cell.clicks == 0
+
+
+def test_speed_display_accepts_1688_r_per_minute_unit() -> None:
+    entry = FormField(index=3, label="转速_rpm", value="2150/2500")
+
+    assert _spec_display_matches("2150/2500\nr/min", entry)

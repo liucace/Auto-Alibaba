@@ -34,7 +34,7 @@ ALBUM_CAPACITY_MESSAGES = ("当前相册已满", "相册容量不足", "图片�
 SPEC_DISPLAY_UNITS: dict[str, tuple[str, ...]] = {
     "电机功率_w": ("W",),
     "风叶直径_m": ("m",),
-    "转速_rpm": ("rpm",),
+    "转速_rpm": ("rpm", "r/min"),
     "风量_m3h": ("m³/h", "m3/h", "m³h", "m3h"),
     "电流_a": ("A",),
     "重量_kg": ("kg",),
