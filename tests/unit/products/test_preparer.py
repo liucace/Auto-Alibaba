@@ -5,9 +5,10 @@ import fitz
 import pytest
 from openpyxl import Workbook
 from PIL import Image
+from pydantic import ValidationError
 
 from app.domain.errors import ManualReviewRequired
-from app.products.preparer import _pdf_contains_exact_model, prepare_product
+from app.products.preparer import PreparationEvidence, _pdf_contains_exact_model, prepare_product
 
 
 def _write_pdf(path: Path, model: str) -> None:
@@ -151,3 +152,33 @@ def test_pdf_exact_model_check_rejects_longer_labeled_part_number(tmp_path: Path
     _write_pdf_pages(pdf, ("MODEL: DP201AT   P / N: 2122HBL.GN0",))
 
     assert not _pdf_contains_exact_model(pdf, "DP201AT-2122HBL.GN")
+
+
+def test_pdf_exact_model_check_rejects_dot_suffix_variant(tmp_path: Path) -> None:
+    pdf = tmp_path / "fan.pdf"
+    _write_pdf(pdf, "DP201AT-2122HBL.GN")
+
+    assert not _pdf_contains_exact_model(pdf, "DP201AT-2122HBL")
+
+
+def test_pdf_exact_model_check_rejects_labeled_dot_suffix_variant(tmp_path: Path) -> None:
+    pdf = tmp_path / "fan.pdf"
+    _write_pdf_pages(pdf, ("MODEL: DP201AT   P / N: 2122HBL.GN",))
+
+    assert not _pdf_contains_exact_model(pdf, "DP201AT-2122HBL")
+
+
+@pytest.mark.parametrize("brand", ["", "   "])
+def test_preparation_evidence_rejects_blank_brand(brand: str) -> None:
+    with pytest.raises(ValidationError, match="brand"):
+        PreparationEvidence(
+            model="DP201AT-2122HBL.GN",
+            brand=brand,
+            pdf_file="fan.pdf",
+            title="Industrial fan",
+            attributes={},
+            specification={},
+            package={"length_cm": 1, "width_cm": 1, "height_cm": 1, "weight_g": 1},
+            images=(),
+            drawing={"page": 1, "crop": [0.0, 0.0, 1.0, 1.0]},
+        )

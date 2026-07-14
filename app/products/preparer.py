@@ -2,10 +2,10 @@ import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 import fitz  # type: ignore[import-untyped]
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError
 
 from app.domain.errors import ManualReviewRequired
 from app.domain.models import DetailDrawingSpec, PackageInfo, ProductImage, ProductPayload
@@ -27,7 +27,7 @@ class PreparationEvidence(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     model: str
-    brand: str = Field(min_length=1)
+    brand: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
     pdf_file: str
     title: str
     attributes: dict[str, str]
@@ -71,7 +71,7 @@ def _write_json(path: Path, value: dict[str, Any]) -> None:
 
 def _pdf_contains_exact_model(path: Path, model: str) -> bool:
     token = re.compile(
-        rf"(?<![A-Z0-9/_-]){re.escape(model)}(?![A-Z0-9/_-])",
+        rf"(?<![A-Z0-9/_.-]){re.escape(model)}(?![A-Z0-9/_.-])",
         flags=re.IGNORECASE,
     )
     labeled_parts = []
@@ -84,12 +84,12 @@ def _pdf_contains_exact_model(path: Path, model: str) -> bool:
             (
                 re.compile(
                     rf"(?<![A-Z0-9])MODEL\s*(?:[:：]\s*|\s+)"
-                    rf"(?<![A-Z0-9/_-]){left}(?![A-Z0-9/_-])",
+                    rf"(?<![A-Z0-9/_.-]){left}(?![A-Z0-9/_.-])",
                     flags=re.IGNORECASE,
                 ),
                 re.compile(
                     rf"(?<![A-Z0-9])P\s*/\s*N\s*(?:[:：]\s*|\s+)"
-                    rf"(?<![A-Z0-9/_-]){right}(?![A-Z0-9/_-])",
+                    rf"(?<![A-Z0-9/_.-]){right}(?![A-Z0-9/_.-])",
                     flags=re.IGNORECASE,
                 ),
             )

@@ -29,3 +29,22 @@ def test_product_payload_requires_brand() -> None:
             shipping_template="Freight",
             package={"length_cm": 1, "width_cm": 1, "height_cm": 1, "weight_g": 1},
         )
+
+
+@pytest.mark.parametrize("brand", ["", "   "])
+def test_product_payload_rejects_blank_brand(brand: str) -> None:
+    with pytest.raises(ValidationError, match="brand"):
+        ProductPayload(
+            model="DP201AT-2122HBL.GN",
+            brand=brand,
+            title="Industrial fan",
+            category_id=1034320,
+            industry_category_id=2293,
+            attributes={},
+            specification={},
+            price=10000,
+            stock=10,
+            delivery_time="48 hours",
+            shipping_template="Freight",
+            package={"length_cm": 1, "width_cm": 1, "height_cm": 1, "weight_g": 1},
+        )
