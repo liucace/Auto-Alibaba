@@ -93,6 +93,14 @@ def test_freight_dropdown_clicks_visible_selection_item() -> None:
     assert 'freight_module.locator(".ant-select-selector").last.click' not in source
 
 
+def test_ant_dropdown_options_can_be_selected_outside_the_viewport() -> None:
+    source = inspect.getsource(Playwright1688Port.fill_product)
+
+    assert 'wait_for(state="attached", timeout=5_000)' in source
+    assert 'evaluate("element => element.click()")' in source
+    assert '.ant-select-item-option-content:visible' not in source
+
+
 def test_fill_product_iterates_only_sparse_form_fields() -> None:
     source = inspect.getsource(Playwright1688Port.fill_product)
 

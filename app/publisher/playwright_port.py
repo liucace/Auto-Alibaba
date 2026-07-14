@@ -613,11 +613,16 @@ class Playwright1688Port:
         if plan.delivery_time not in await delivery_module.inner_text():
             delivery = delivery_module.locator(".ant-select-selector").last
             await delivery.click(force=True)
-            await (
-                self.page.locator(".ant-select-item-option-content:visible")
+            option = (
+                self.page.locator(".ant-select-item-option")
                 .filter(has_text=plan.delivery_time)
-                .last.click(timeout=3_000)
+                .last
             )
+            await option.wait_for(state="attached", timeout=5_000)
+            await option.evaluate("element => element.click()")
+            await self.page.wait_for_timeout(100)
+            if plan.delivery_time not in await delivery_module.inner_text():
+                raise ManualReviewRequired("delivery time did not retain expected value")
 
         freight_module = self.page.locator("#guid-freight")
         selected = freight_module.locator(".ant-select-selection-item").last
@@ -625,12 +630,12 @@ class Playwright1688Port:
             for _ in range(2):
                 await selected.click(force=True)
                 option = (
-                    self.page.locator(".ant-select-item-option-content:visible")
+                    self.page.locator(".ant-select-item-option")
                     .filter(has_text=plan.shipping_template)
                     .last
                 )
-                await option.wait_for(state="visible", timeout=5_000)
-                await option.click(timeout=3_000)
+                await option.wait_for(state="attached", timeout=5_000)
+                await option.evaluate("element => element.click()")
                 await self.page.wait_for_timeout(100)
                 if value_matches(await selected.inner_text(), plan.shipping_template):
                     break
