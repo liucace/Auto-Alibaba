@@ -107,6 +107,8 @@ def test_setup_and_guidance_are_portable() -> None:
 
     assert "[switch]$CheckOnly" in setup
     assert "$PSScriptRoot" in setup
+    assert "Open START-HERE.md with your agent" in setup
+    assert "The Codex Plugin is optional" in setup
     assert "python -m app.cli doctor" in readme
     assert "agent-onboard.ps1" in readme
     assert "START-HERE.md" in readme

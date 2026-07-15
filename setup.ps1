@@ -56,4 +56,4 @@ if (-not (Test-Path -LiteralPath $VenvPython)) {
 }
 & $VenvPython -m pip install --upgrade pip
 & $VenvPython -m pip install -e "$($Root)[dev]"
-Write-Host "Setup complete. Restart Codex, install the auto-alibaba plugin, and run doctor."
+Write-Host "Setup complete. Open START-HERE.md with your agent. The Codex Plugin is optional."
