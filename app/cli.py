@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 import sys
 import urllib.request
 from dataclasses import dataclass
@@ -8,12 +9,13 @@ from typing import Annotated
 
 import typer
 
-from app.domain.errors import AutomationError
+from app.domain.errors import AutomationError, ManualReviewRequired
 from app.ingest.inventory import load_inventory
 from app.ingest.model_number import normalize_model
 from app.products.input_onboarding import initialize_product_inputs
 from app.products.loader import load_prepared_product
 from app.products.main_images import media_fingerprint
+from app.products.onboarding import OnboardingResult, onboard_product
 from app.products.preparer import prepare_product
 from app.publisher.form_plan import build_form_plan
 from app.publisher.orchestrator import ProductUploader, UploadResult
@@ -55,6 +57,56 @@ def init_product(
         }
     typer.echo(json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
     if not payload["ok"]:
+        raise typer.Exit(code=2)
+
+
+def open_local_path(path: Path) -> None:
+    resolved = path.resolve()
+    if not resolved.exists():
+        raise ManualReviewRequired(f"需要打开的路径不存在，未创建替代路径: {resolved}")
+    startfile = getattr(os, "startfile", None)
+    if startfile is None:
+        raise ManualReviewRequired(f"当前系统无法自动打开路径: {resolved}")
+    startfile(str(resolved))
+
+
+def _open_onboarding_inputs(result: OnboardingResult) -> None:
+    if result.model is None:
+        return
+    open_local_path(Path(result.paths["inventory_workbook"]))
+    open_local_path(Path(result.paths["source_directory"]))
+
+
+@app.command()
+def onboard(
+    root: Annotated[Path, typer.Option("--root", help="商品资料工作区")] = Path("."),
+    model: Annotated[
+        str | None, typer.Option("--model", help="用户明确提供的完整商品型号")
+    ] = None,
+    open_inputs: Annotated[
+        bool, typer.Option("--open", help="打开价格库存表和当前型号资料目录")
+    ] = False,
+) -> None:
+    """Return the next beginner-safe onboarding action as JSON."""
+    try:
+        result = onboard_product(root.resolve(), model)
+        if open_inputs:
+            _open_onboarding_inputs(result)
+        payload = result.to_dict()
+    except AutomationError as error:
+        payload = {
+            "ok": False,
+            "status": "BLOCKED",
+            "model": model,
+            "folder_key": None,
+            "created": [],
+            "checks": {},
+            "paths": {"project_root": str(root.resolve())},
+            "next_action": str(error),
+            "message": str(error),
+        }
+    typer.echo(json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
+    if payload["status"] == "BLOCKED":
         raise typer.Exit(code=2)
 
 
