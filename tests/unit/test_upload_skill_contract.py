@@ -56,18 +56,45 @@ def test_upload_skill_square_check_rejects_non_square_image(tmp_path: Path) -> N
     assert module.image_dimensions(rectangle) == (100, 80)
 
 
-def test_skill_requires_product_input_guide_before_upload() -> None:
+def test_skill_requires_agent_onboarding_before_upload() -> None:
     skill = SKILL.read_text(encoding="utf-8")
 
-    assert 'python -m app.cli init-product "<MODEL>" --root "<PROJECT_ROOT>"' in skill
-    assert skill.index("python -m app.cli init-product") < skill.index(
-        "python -m app.cli doctor"
+    command = (
+        'powershell -NoProfile -ExecutionPolicy Bypass -File '
+        '"<PROJECT_ROOT>\\agent-onboard.ps1" -Model "<MODEL>" -Open'
     )
-    assert "NEEDS_INPUT" in skill
-    assert "price_inventory.xlsx" in skill
-    assert "PDF" in skill
-    assert "四张" in skill
+    assert command in skill
+    assert skill.index("agent-onboard.ps1") < skill.index("ensure_chrome.ps1")
+    for status in (
+        "NEEDS_SETUP",
+        "NEEDS_MODEL",
+        "NEEDS_PRICE_STOCK",
+        "NEEDS_SOURCE_FILES",
+        "READY_TO_UPLOAD",
+        "NEEDS_LOGIN",
+        "READY_TO_SAVE",
+    ):
+        assert status in skill
+    assert "价格和库存不能为空" in skill
+    assert "Codex Plugin 不是必需条件" in skill
+    assert "init-product" not in skill
+    assert "10000" not in skill
     assert "不得在同一轮" in skill
+
+
+def test_skill_protects_all_user_business_inputs() -> None:
+    skill = SKILL.read_text(encoding="utf-8")
+
+    for phrase in (
+        "不得删除、移动、改名、清空或覆盖",
+        "price_inventory.xlsx",
+        "data/",
+        "automation/",
+        "PDF",
+        "照片",
+        "明确授权",
+    ):
+        assert phrase in skill
 
 
 def test_skill_documents_approved_geo_single_sku_and_fixed_tail_contract() -> None:

@@ -13,27 +13,31 @@ description: Use when uploading, fast-uploading, resuming, or checking prepared 
 
 ## Workflow
 
-1. 从请求取得完整型号并规范化，不猜测相近型号。没有型号时先运行：
+1. 解析 `<PROJECT_ROOT>`，并把仓库根目录入口作为所有智能体的共同事实来源。Codex Plugin 不是必需条件；只要当前智能体能运行 PowerShell 和 Python，就可以使用本流程。
+
+2. 没有用户明确提供的真实完整型号时，先运行：
 
    ```powershell
-   python "<SKILL_DIR>\scripts\inspect_session.py" --root "<PROJECT_ROOT>" --cdp-url "http://127.0.0.1:9223"
+   powershell -NoProfile -ExecutionPolicy Bypass -File "<PROJECT_ROOT>\agent-onboard.ps1"
    ```
 
-   仅当JSON返回唯一 `model` 时继续，否则询问用户。
+   只能转述 `NEEDS_SETUP` 或 `NEEDS_MODEL` 的 `next_action`，随后等待用户。不得创建示例型号，也不得从目录名、历史商品或相近型号猜测。
 
-2. 确保项目存在。在 `<PROJECT_ROOT>` 中运行 `python -m app.cli version`。仅当错误明确为缺少Python依赖时运行 `python -m pip install -e .`，其他错误直接报告。
-
-3. 在任何 `doctor`、`prepare`、Chrome 会话检查或上传锁之前，运行资料初始化向导：
+3. 获得用户的真实完整型号后，在任何 doctor、prepare、Chrome、上传锁或浏览器动作之前运行：
 
    ```powershell
-   python -m app.cli init-product "<MODEL>" --root "<PROJECT_ROOT>"
+   powershell -NoProfile -ExecutionPolicy Bypass -File "<PROJECT_ROOT>\agent-onboard.ps1" -Model "<MODEL>" -Open
    ```
 
-   - `price_inventory.xlsx` 用于提供当前完整型号的1688价格和库存；型号保留 `/`，价格和库存留空时分别使用 `10000` 和 `50`。
-   - `data/draft_saved/<FOLDER_KEY>/` 用于保存当前型号的原始资料；目录名去掉 `/`，其中需要至少一份包含完整型号的 PDF 规格书和至少四张真实产品照片。
+   - `NEEDS_SETUP`：只处理 `next_action` 指出的当前环境问题，随后重新运行同一步。
+   - `NEEDS_PRICE_STOCK`：请用户在已打开 Excel 的当前精确型号行填写真实价格和库存；价格和库存不能为空。随后停止并等待用户说“已填好”。
+   - `NEEDS_SOURCE_FILES`：只转述当前唯一 `next_action`，随后停止并等待用户。PDF 和照片直接放在已打开的型号目录，不需要子目录或固定文件名。
+   - `READY_TO_UPLOAD`：才允许继续现有 Chrome、doctor、证据准备和上传流程。
+   - `BLOCKED`：准确报告 `message`，不得覆盖或替换已有文件。
+   - 每个状态只要求用户完成一个动作。不得在同一轮假定用户已经完成并继续检查或上传。
+   - `price_inventory.xlsx` 用于提供当前完整型号的1688价格和库存；业务型号保留 `/`，目录键使用项目 `model_folder_key()`。
+   - `data/draft_saved/<FOLDER_KEY>/` 保存当前型号原始资料，其中需要至少一份包含完整型号的 PDF 规格书和至少四张真实产品照片。
    - 操作者的外部输入仅限当前型号 PDF、至少四张真实产品照片，以及 Excel 中的价格和库存。品牌、标题、属性、规格、包装值、图片角色、尺寸图裁剪和全部运行 JSON 均由本 Skill 从这些资料中生成；不得要求操作者手工填写 JSON、品牌或技术参数。
-   - 如果返回 `NEEDS_INPUT`，向使用者列出 `created`、逐项转述 `requirements` 的用途和操作，随后停止。不得在同一轮再次运行向导或进入浏览器；等待使用者补充并重新调用 Skill。
-   - 如果返回 `BLOCKED`，准确报告 `message`，不要覆盖已有库存表或猜测资料。
 
 4. 运行专用Chrome检查：
 
@@ -75,7 +79,7 @@ description: Use when uploading, fast-uploading, resuming, or checking prepared 
 
 ## Fixed Rules
 
-- 型号行不存在即停止；价格/库存为空时使用 `10000`/`50`。
+- 型号行不存在即停止；价格和库存不能为空，也不得使用默认值代替用户输入。
 - 类目ID固定为 `1034320`/`2293`；48小时发货；运费模板为“运费”，绝不选“8元”。
 - 四张待上传主图必须为1:1且分别小于 `5,000,000` 字节；非1:1源照片由 `prepare` 确定性等比缩放并补白边。
 - 仅处理 PDF、四张照片及完整证据均已准备的型号；三个运行JSON可由 `prepare` 自动生成，但不要临时编造缺失参数。
@@ -90,3 +94,5 @@ description: Use when uploading, fast-uploading, resuming, or checking prepared 
 ## Safety Boundary
 
 永远不要点击“保存草稿”、发布或等价按钮。不要复制Cookie、密码或账号凭据。页面结构、登录状态或素材证据不确定时立即停止。
+
+`price_inventory.xlsx`、`data/`、`automation/`、PDF、照片和浏览器资料均为用户业务数据；未经用户针对具体路径明确授权，不得删除、移动、改名、清空或覆盖，也不得在 Git/worktree 清理时处理这些路径。
