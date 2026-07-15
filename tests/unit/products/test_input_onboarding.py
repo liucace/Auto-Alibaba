@@ -41,6 +41,9 @@ def test_missing_inputs_create_inventory_template_and_model_folder(tmp_path: Pat
 
     requirements = {item.key: item for item in result.requirements}
     assert "1688价格和库存" in requirements["inventory"].purpose
+    assert "真实价格" in requirements["inventory"].action
+    assert "不能留空" in requirements["inventory"].action
+    assert "10000" not in requirements["inventory"].action
     assert "PDF" in requirements["source_files"].action
     assert "四张" in requirements["source_files"].action
 

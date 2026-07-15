@@ -133,9 +133,7 @@ def initialize_product_inputs(root: Path, model: str) -> ProductInputResult:
             key="inventory",
             path=str(workbook),
             purpose="提供当前完整型号的1688价格和库存。",
-            action=(
-                "打开表格核对型号、价格和库存；价格或库存留空时分别使用默认值10000和50。"
-            ),
+            action="打开表格，在当前完整型号行填写真实价格和真实库存；两项都不能留空。",
             ready=not inventory_needs_review,
         ),
         InputRequirement(
