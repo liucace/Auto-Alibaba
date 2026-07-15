@@ -31,10 +31,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\agent-onboard.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\agent-onboard.ps1 -Model "<完整型号>" -Open
 ~~~
 
-无型号调用只检查环境并返回 NEEDS_SETUP 或 NEEDS_MODEL，不会创建价格表、型号目录或示例商品。只有显式传入用户的真实完整型号后，才会创建或复用：
+无型号调用只检查环境并返回 `NEEDS_SETUP` 或 `NEEDS_MODEL`，不会创建价格表、型号目录或示例商品。只有显式传入用户的真实完整型号后，才会创建或复用：
 
-- price_inventory.xlsx：保存完整型号、1688价格和库存；价格和库存都必须由用户填写真实值，不能留空。
-- data/draft_saved/<FOLDER_KEY>/：直接放入至少一份包含完整型号的 PDF规格书，以及至少四张当前型号真实产品照片；不需要子目录，也不限制原文件名。
+- `price_inventory.xlsx`：保存完整型号、1688价格和库存；价格和库存都必须由用户填写真实值，不能留空。
+- `data/draft_saved/<FOLDER_KEY>/`：直接放入至少一份包含完整型号的 PDF规格书，以及至少四张当前型号真实产品照片；不需要子目录，也不限制原文件名。
 
 品牌、标题、属性、SKU、包装值、图片角色、详情页和运行 JSON 均由智能体与项目从当前资料中处理。规格书和照片没有的普通值不填写；关键值无法确认时停止。
 
@@ -67,7 +67,7 @@ automation/<FOLDER_KEY>/
   task_state.json
 ~~~
 
-业务型号始终保留 / 等原字符；<FOLDER_KEY> 只用于本地目录，由统一的 model_folder_key() 生成。用户只维护原始 PDF、照片以及 Excel 中的价格和库存；automation/ 和 upload_optimized/ 由程序生成。
+业务型号始终保留 `/` 等原字符；`<FOLDER_KEY>` 只用于本地目录，由统一的 `model_folder_key()` 生成。用户只维护原始 PDF、照片以及 Excel 中的价格和库存；`automation/` 和 `upload_optimized/` 由程序生成。
 
 preparation_evidence.json 是原始资料与运行 JSON 之间的证据层。当前型号 PDF、照片、标题、属性、规格、包装值、图片角色和尺寸图来源都必须可追溯；不得根据目录名、历史商品、默认品牌或相近型号猜测。
 
