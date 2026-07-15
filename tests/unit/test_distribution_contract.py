@@ -1,7 +1,10 @@
 import json
 import re
+import shutil
 import subprocess
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 PLUGIN = ROOT / "plugins" / "auto-alibaba"
@@ -113,3 +116,50 @@ def test_setup_and_guidance_are_portable() -> None:
     for content in (setup, agents, readme):
         assert "D:\\Auto-Alibaba" not in content
         assert f"C:\\Users\\{ORIGINAL_USER}" not in content
+
+
+def test_agent_onboard_is_model_free_and_forwards_only_explicit_model() -> None:
+    script = (ROOT / "agent-onboard.ps1").read_text(encoding="utf-8")
+
+    assert "[string]$Model" in script
+    assert '"--model"' in script
+    assert "app.cli" in script
+    assert '"onboard"' in script
+    assert "init-product" not in script
+    assert "W3G800" not in script
+    assert "W3G630" not in script
+    assert "Remove-Item" not in script
+    assert "Move-Item" not in script
+
+
+@pytest.mark.skipif(shutil.which("powershell") is None, reason="Windows PowerShell required")
+def test_agent_onboard_without_model_does_not_create_business_data(
+    tmp_path: Path,
+) -> None:
+    clone = tmp_path / "clean-project"
+    shutil.copytree(ROOT / "app", clone / "app")
+    for name in ("agent-onboard.ps1", "pyproject.toml"):
+        shutil.copy2(ROOT / name, clone / name)
+
+    completed = subprocess.run(
+        [
+            "powershell",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(clone / "agent-onboard.ps1"),
+        ],
+        cwd=clone,
+        text=True,
+        encoding="utf-8",
+        capture_output=True,
+        check=False,
+    )
+
+    payload = json.loads(completed.stdout.strip().splitlines()[-1])
+    assert completed.returncode == 0
+    assert payload["status"] in {"NEEDS_SETUP", "NEEDS_MODEL"}
+    assert not (clone / "price_inventory.xlsx").exists()
+    assert not (clone / "data").exists()
+    assert not (clone / "automation").exists()
