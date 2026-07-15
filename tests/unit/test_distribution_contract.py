@@ -108,7 +108,8 @@ def test_setup_and_guidance_are_portable() -> None:
     assert "[switch]$CheckOnly" in setup
     assert "$PSScriptRoot" in setup
     assert "python -m app.cli doctor" in readme
-    assert "python -m app.cli init-product" in readme
+    assert "agent-onboard.ps1" in readme
+    assert "START-HERE.md" in readme
     assert "1688价格和库存" in readme
     assert "PDF规格书" in readme
     assert "四张" in readme
@@ -163,3 +164,58 @@ def test_agent_onboard_without_model_does_not_create_business_data(
     assert not (clone / "price_inventory.xlsx").exists()
     assert not (clone / "data").exists()
     assert not (clone / "automation").exists()
+
+
+def test_beginner_guidance_states_exact_user_inputs_and_locations() -> None:
+    start = (ROOT / "START-HERE.md").read_text(encoding="utf-8")
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+
+    for phrase in (
+        "完整型号",
+        "规格书 PDF",
+        "至少四张",
+        "价格",
+        "库存",
+        "price_inventory.xlsx",
+        "data/draft_saved/<FOLDER_KEY>/",
+    ):
+        assert phrase in start
+    assert "品牌、参数、标题、SKU、JSON 和详情页由智能体" in start
+    assert "不要创建示例型号" in start
+    assert "不要删除、移动或覆盖" in start
+    assert "START-HERE.md" in readme
+    assert "一次只" in agents
+    assert "未经用户明确授权" in agents
+
+
+def test_beginner_facing_guidance_has_no_fixed_business_model() -> None:
+    for relative in ("START-HERE.md", "README.md", "AGENTS.md"):
+        content = (ROOT / relative).read_text(encoding="utf-8")
+        assert "W3G800-KS39-03/F01" not in content
+        assert "W3G630-NU33-03" not in content
+
+
+def test_double_click_entry_only_opens_project_and_instructions() -> None:
+    script = (ROOT / "开始使用.ps1").read_text(encoding="utf-8")
+
+    assert "$PSScriptRoot" in script
+    assert "START-HERE.md" in script
+    assert "Start-Process" in script
+    for forbidden in (
+        "app.cli",
+        "setup.ps1",
+        "agent-onboard.ps1",
+        "run_upload",
+        "chrome.exe",
+        "Remove-Item",
+        "Move-Item",
+    ):
+        assert forbidden not in script
+
+
+def test_setup_never_initializes_a_product() -> None:
+    setup = (ROOT / "setup.ps1").read_text(encoding="utf-8")
+
+    assert "init-product" not in setup
+    assert "app.cli onboard" not in setup

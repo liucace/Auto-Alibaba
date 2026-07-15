@@ -1,112 +1,121 @@
-# 1688 持久化草稿上传器
+# Auto-Alibaba：智能体引导的 1688 商品上传器
 
-该工具通过 Playwright CDP 连接本机 Google Chrome 的 `9223` 端口，读取指定型号已经准备好的本地资料，一次完成 1688 固定类目商品表单，并停在“保存草稿”前。仓库同时包含可安装的 Codex `auto-alibaba` Plugin 和 `upload-1688-products` Skill。
+Auto-Alibaba 配合 Codex、WorkBuddy 或其他能够运行 PowerShell 和 Python 的外部智能体使用。智能体从当前型号的规格书和真实照片理解商品，项目负责确定性校验、图片处理、1688 页面填写、质量检查和状态保存。项目本身不内置 AI。
 
-## 克隆与安装
+如果你是电脑小白，请先看 [START-HERE.md](START-HERE.md)。你也可以把下面这句话直接发给智能体：
 
-```powershell
+> 开始使用这个项目。我是电脑小白。请先读取 START-HERE.md 和 AGENTS.md，再一步一步带我操作；一次只告诉我一个动作。
+
+## 克隆与首次安装
+
+~~~powershell
 git clone https://github.com/liucace/Auto-Alibaba.git
 Set-Location Auto-Alibaba
 powershell -NoProfile -ExecutionPolicy Bypass -File .\setup.ps1
-```
+~~~
 
 也可以先执行无写入检查：
 
-```powershell
+~~~powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\setup.ps1 -CheckOnly
-```
+~~~
 
-在 Codex 中打开克隆后的仓库，重启 Codex 后从仓库 marketplace 安装 `auto-alibaba` Plugin。若仓库 marketplace 没有自动出现，可运行 `codex plugin marketplace add .` 后重启 Codex。Plugin 只包含工作流，不包含商品资料或登录状态。
+在 Codex、WorkBuddy 或其他智能体中打开克隆后的项目即可。Codex 用户可以选择安装仓库内的 auto-alibaba Plugin；Plugin 只提供工作流增强，不包含商品资料、账号或登录状态，也不是运行项目的必需条件。
 
-## 首次资料向导
+## 智能体通用入口
 
-使用 Skill 上传某个型号时，会先运行资料向导。也可以手动执行：
+所有兼容智能体都应优先使用根目录入口：
 
-```powershell
-python -m app.cli init-product "W3G800-KS39-03/F01" --root .
-```
+~~~powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\agent-onboard.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\agent-onboard.ps1 -Model "<完整型号>" -Open
+~~~
 
-如果缺失，向导会自动创建：
+无型号调用只检查环境并返回 NEEDS_SETUP 或 NEEDS_MODEL，不会创建价格表、型号目录或示例商品。只有显式传入用户的真实完整型号后，才会创建或复用：
 
-- `price_inventory.xlsx`：提供当前完整型号的1688价格和库存，并自动加入当前型号行。型号保留 `/`；价格和库存留空时分别使用默认值 `10000` 和 `50`，继续前应打开表格核对。
-- `data/draft_saved/W3G800-KS39-03F01/`：保存当前型号的原始资料。目录名去掉 `/`，使用者需要放入至少一份包含完整型号的 PDF规格书，以及至少四张当前型号真实产品照片。
+- price_inventory.xlsx：保存完整型号、1688价格和库存；价格和库存都必须由用户填写真实值，不能留空。
+- data/draft_saved/<FOLDER_KEY>/：直接放入至少一份包含完整型号的 PDF规格书，以及至少四张当前型号真实产品照片；不需要子目录，也不限制原文件名。
 
-首次运行若创建了模板或资料尚不完整，会输出 `NEEDS_INPUT` 并停止，不启动 Chrome。补充、核对资料后，用同一型号再次调用 Skill。`automation/` JSON、详情页和 `upload_optimized/` 图片由程序生成，不需要手写。
+品牌、标题、属性、SKU、包装值、图片角色、详情页和运行 JSON 均由智能体与项目从当前资料中处理。规格书和照片没有的普通值不填写；关键值无法确认时停止。
 
-Chrome 必须使用专用用户目录和远程调试端口启动，并提前登录 `work.1688.com`：
+结构化状态如下：
 
-```powershell
-$ProjectRoot = (Get-Location).Path
-$ChromeProfile = Join-Path $ProjectRoot ".chrome-profile"
-& "$env:ProgramFiles\Google\Chrome\Application\chrome.exe" `
-  --remote-debugging-port=9223 `
-  --user-data-dir="$ChromeProfile"
-```
+- NEEDS_SETUP：当前环境缺少一个必要条件；
+- NEEDS_MODEL：等待用户提供真实完整型号；
+- NEEDS_PRICE_STOCK：等待填写价格或库存；
+- NEEDS_SOURCE_FILES：等待 PDF规格书或真实照片；
+- READY_TO_UPLOAD：资料齐全，可以进入证据准备和上传；
+- NEEDS_LOGIN：等待用户在专用 Chrome 登录 1688；
+- READY_TO_SAVE：页面和质量检查完成，已停在“保存草稿”前。
 
-## 资料约定
+## 资料目录
 
-```text
+~~~text
 price_inventory.xlsx
-data/draft_saved/<MODEL_WITHOUT_SLASH>/
+data/draft_saved/<FOLDER_KEY>/
   <PDF规格书>
-  <四张产品照片>
-  upload_optimized/<照片名>-square.jpg
-  upload_optimized/detail-drawing.jpg
-automation/<MODEL>/
+  <产品照片>
+  upload_optimized/
+    <程序生成的1:1主图>
+    detail-drawing.jpg
+automation/<FOLDER_KEY>/
   preparation_evidence.json
   1688_payload.json
   image_analysis.json
   detail_assets.json
   detail.html
   task_state.json
-```
+~~~
 
-`detail_assets.json` 指定当前型号 PDF 文件、产品图纸页、归一化裁剪范围和尺寸图输出路径。上传器会保留原 PDF，生成小于平台限制的尺寸图副本，并缓存其 1688 托管地址供中断续跑复用。
+业务型号始终保留 / 等原字符；<FOLDER_KEY> 只用于本地目录，由统一的 model_folder_key() 生成。用户只维护原始 PDF、照片以及 Excel 中的价格和库存；automation/ 和 upload_optimized/ 由程序生成。
 
-`preparation_evidence.json` 是资料与运行 JSON 之间的证据层。操作 Skill 会先核对 PDF 和四张照片，再生成该文件；用户不需要手写。程序只负责校验精确型号、读取库存、确定性生成 1:1 白边 JPEG 和三个运行 JSON，不会自动猜测 PDF 图纸中无法可靠文本提取的尺寸。
+preparation_evidence.json 是原始资料与运行 JSON 之间的证据层。当前型号 PDF、照片、标题、属性、规格、包装值、图片角色和尺寸图来源都必须可追溯；不得根据目录名、历史商品、默认品牌或相近型号猜测。
 
-Excel 必须存在精确型号行。资料向导会在缺少时追加完整型号；价格或库存为空时分别使用 `10000`、`50`。
+## 专用 Chrome
 
-## 使用
+上传前，Google Chrome 必须使用项目专用用户目录和远程调试端口 9223 启动，并由用户登录自己的 work.1688.com 账号：
 
-先初始化并检查当前型号资料：
+~~~powershell
+$ProjectRoot = (Get-Location).Path
+$ChromeProfile = Join-Path $ProjectRoot ".chrome-profile"
+& "$env:ProgramFiles\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9223 --user-data-dir="$ChromeProfile"
+~~~
 
-```powershell
-python -m app.cli init-product "W3G800-KS39-03/F01" --root .
-```
+只读环境检查：
 
-资料返回 `READY` 后做只读环境检查：
-
-```powershell
+~~~powershell
 python -m app.cli doctor --root .
-```
+~~~
 
-根据已经核验的证据生成运行产物（不会打开浏览器）：
+## 高级命令
 
-```powershell
-python -m app.cli prepare "W3G800-KS39-03/F01" --root .
-```
+正常新手流程应由智能体调用根目录入口。熟悉项目后，可以使用以下无固定型号命令：
 
-上传并填写一个型号：
+~~~powershell
+python -m app.cli onboard --root .
+python -m app.cli onboard --root . --model "<完整型号>" --open
+python -m app.cli prepare "<完整型号>" --root .
+python -m app.cli run "<完整型号>" --root .
+~~~
 
-```powershell
-python -m app.cli run W3G630-NU33-03 --root .
-```
+init-product 仅为旧调用保留兼容性；新的智能体流程统一使用 onboard。
 
-默认规则固定为：
+## 上传质量规则
 
-- 类目：机械及行业设备 > 风机、排风设备 > 工业风扇 > 其他工业风扇
-- 发货时效：48 小时
-- 运费模板：运费
-- 四张主图
-- 参考页忠实版 GEO 详情：产品尺寸图、场景使用、产品组成、型号定义、买家选择理由、核心参数、适用场景、选型提醒、采购确认、FAQ 与一句话选型
-- 详情至少五张当前型号真实图片：一张 PDF 尺寸图和四张实拍图
-- 只执行一次平台质量检测
-
-业务型号始终保留 `/` 等原字符，目录名使用统一的无斜杠键。运行页面用完整型号标记；只有本地主图 SHA-256 指纹与页面记录一致时才会复用已上传图片，图片内容改变后会新建未保存页面，避免误用旧媒体。
-
-价格、库存、SKU、包装和运费模板写入后都会回读，首次不一致会自动重试一次。质量检测结果在 `task_state.json` 中同时记录错误总数、建议和包含区块/字段/提示的 `error_details`，便于直接定位阻塞项。
+- 类目：机械及行业设备 > 风机、排风设备 > 工业风扇 > 其他工业风扇；
+- 发货时效：48 小时；
+- 运费模板：运费；
+- 四张当前型号主图，确定性等比缩放并补白边为 1:1，不覆盖原照片；
+- 标题包含有证据的品牌、完整型号和产品名称，并遵守 1688 加权长度；
+- 一个完整型号只建立一个精确 SKU；50/60Hz 数据属于同一型号时不拆 SKU；
+- GEO 详情按当前证据自适应生成，包含当前型号实物图、尺寸图、参数、选型说明、FAQ 和固定放在末尾的六张公司介绍图；
+- 图片相册按精确品牌名和连续编号管理；容量满时只创建下一编号并重试当前批次一次；
+- 本地主图内容变化时使旧媒体缓存失效，避免误用历史图片；
+- 价格、库存、SKU、包装和运费模板写入后回读校验；
+- 只执行一次平台质量检测，并将结果保存到 task_state.json。
 
 ## 安全边界
 
-工具没有保存草稿、发布商品或点击发布按钮的函数。详情尺寸图、关键参数或当前型号图片缺失时会在覆盖编辑器前停止。质量检测错误为 `0` 后仅验证 `#saveDraftButton` 的文本严格等于“保存草稿”，随后输出 `READY_TO_SAVE` 并停止。保存动作由用户确认后另行执行。
+price_inventory.xlsx、data/、automation/、PDF、照片、.chrome-profile/、Cookie、账号凭据和 .env 都是用户业务资料。未经用户针对具体路径明确授权，不得删除、移动、改名、清空或覆盖，也不得在 Git/worktree 清理时处理这些路径。
+
+工具没有自动点击“保存草稿”或发布商品的功能。详情尺寸图、关键证据或当前型号图片缺失时会停止；质量检测错误为 0 后只验证按钮仍是“保存草稿”，输出 READY_TO_SAVE 并停下，最终动作由用户决定。
